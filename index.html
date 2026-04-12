@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Фактури</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+        font-family: 'Noto Sans', sans-serif;
+        background: #e8e8e8;
+        display: flex;
+        justify-content: center;
+        padding: 40px 20px;
+    }
+    
+    .invoice {
+        width: 780px;
+        background: #fff;
+        padding: 50px 50px 40px;
+        box-shadow: 0 2px 20px rgba(0,0,0,0.12);
+        position: relative;
+        font-size: 13px;
+        color: #1a1a1a;
+        line-height: 1.5;
+    }
+    
+    .header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 36px;
+    }
+    
+    .header-left h1 {
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        margin-bottom: 2px;
+    }
+    
+    .header-left .city {
+        font-size: 15px;
+        font-weight: 600;
+    }
+    
+    .header-right {
+        text-align: right;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+    
+    .invoice-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 24px;
+    }
+    
+    .invoice-title {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+    
+    .client-box {
+        border: 2px solid #1a3a6b;
+        padding: 8px 14px;
+        font-size: 12px;
+        line-height: 1.6;
+        max-width: 340px;
+    }
+    
+    .client-box strong {
+        font-weight: 700;
+    }
+    
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 10px;
+        font-size: 12px;
+    }
+    
+    .items-table thead th {
+        background: #f0f0f0;
+        border: 1px solid #999;
+        padding: 6px 8px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 11px;
+    }
+    
+    .items-table tbody td {
+        border: 1px solid #999;
+        padding: 5px 8px;
+        text-align: center;
+        height: 24px;
+    }
+    
+    .items-table tbody td.text-left {
+        text-align: left;
+    }
+    
+    .items-table tbody td.text-right {
+        text-align: right;
+    }
+    
+    .total-row {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 6px;
+        margin-bottom: 24px;
+        font-size: 13px;
+    }
+    
+    .total-box {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        border-top: 2px solid #333;
+        padding-top: 6px;
+    }
+    
+    .total-box .label {
+        font-weight: 700;
+    }
+    
+    .total-box .amount {
+        font-weight: 700;
+        min-width: 100px;
+        text-align: right;
+    }
+    
+    .sum-words {
+        margin-bottom: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .payment-note {
+        font-size: 11.5px;
+        line-height: 1.7;
+        margin-bottom: 40px;
+        padding-left: 20px;
+    }
+    
+    .footer {
+        margin-top: 40px;
+    }
+    
+    .date {
+        font-size: 13px;
+        font-weight: 600;
+    }
+    
+    .signature-line {
+        width: 180px;
+        border-bottom: 1px solid #333;
+        margin-bottom: 4px;
+    }
+    
+    .signature-label {
+        font-size: 12px;
+    }
+
+    .dd-options {
+        position: absolute;
+        top: 110%;
+        left: 0;
+        width: 300px;
+        z-index: 1;
+        max-height: 500px;
+        overflow-y: scroll;
+    }
+
+    .dd-option:hover{
+        background: rgb(230, 230, 230);
+    }
+
+    .pointer{
+        cursor: pointer;
+    }
+
+    .w-33{
+        width: 33.33%;
+    }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1>Фактурa</h1>
+            <div>
+                <div class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#newProductModal">Внеси нов продукт</div>
+                <div class="btn btn-primary" id="add-product">Додади продукт</div>
+                <div class="btn btn-success" id="create">Креирај фактура</div>
+                <div class="btn btn-success" id="download">Download</div>
+            </div>
+        </div>
+        <div class="row border bg-white p-2 rounded mb-3 product-group">
+            <div class="my-3 d-flex gap-5 overall-group">
+                <div class="d-flex gap-3 w-50 group">
+                    <div class="w-33">
+                        <label for="product-1">Продукт</label>
+                        <div class="position-relative">
+                            <input type="text" autocomplete="off" class="product form-control" id="product-1">
+                            <div class="dd-options d-none border bg-white"></div>
+                        </div>
+                    </div>
+                    <div class="w-33">
+                        <label for="price-1">Количина</label>
+                        <input type="number" class="form-control quantity" id="price-1">
+                    </div>
+                    <div class="w-33">
+                        <label for="price-1">Цена</label>
+                        <input type="number" class="form-control price" id="price-1">
+                    </div>
+                </div>
+                <div class="d-flex gap-3 w-50 group">
+                    <div class="w-33">
+                        <label for="product-2">Продукт</label>
+                        <div class="position-relative">
+                            <input type="text" autocomplete="off" class="product form-control" id="product-2">
+                            <div class="dd-options d-none border bg-white"></div>
+                        </div>
+                    </div>
+                    <div class="w-33">
+                        <label for="price-1">Количина</label>
+                        <input type="number" class="form-control quantity" id="price-1">
+                    </div>
+                    <div class="w-33">
+                        <label for="price-3">Цена</label>
+                        <input type="number" class="form-control price" id="price-2">
+                    </div>
+                </div>
+            </div>
+            <div class="my-3 d-flex gap-5 overall-group">
+                <div class="d-flex gap-3 w-50 group">
+                    <div class="w-33">
+                        <label for="product-3">Продукт</label>
+                        <div class="position-relative">
+                            <input type="text" autocomplete="off" class="product form-control" id="product-3">
+                            <div class="dd-options d-none border bg-white"></div>
+                        </div>
+                    </div>
+                    <div class="w-33">
+                        <label for="price-1">Количина</label>
+                        <input type="number" class="form-control quantity" id="price-1">
+                    </div>
+                    <div class="w-33">
+                        <label for="price-3">Цена</label>
+                        <input type="number" class="form-control price" id="price-3">
+                    </div>
+                </div>
+                <div class="d-flex gap-3 w-50 group">
+                    <div class="w-33">
+                        <label for="product-4">Продукт</label>
+                        <div class="position-relative">
+                            <input type="text" autocomplete="off"  class="product form-control" id="product-4">
+                            <div class="dd-options d-none border bg-white"></div>
+                        </div>
+                    </div>
+                    <div class="w-33">
+                        <label for="price-1">Количина</label>
+                        <input type="number" class="form-control price" id="price-1">
+                    </div>
+                    <div class="w-33">
+                        <label for="price-4">Цена</label>
+                        <input type="number" class="form-control price" id="price-4">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row border bg-white p-2 rounded mb-3">
+            <div class="d-flex gap-3">
+                <div class="w-33">
+                    <label for="invoice-no">Број на фактура</label>
+                    <input type="text" autocomplete="off" class="form-control" id="invoice-no-input">
+                </div>
+                <div class="w-33">
+                    <label for="komintent">Коминтент</label>
+                    <input type="text" autocomplete="off" class="form-control" id="komintent-input">
+                </div>
+                <div class="w-33">
+                    <label for="adress">Адреса</label>
+                    <input type="text" autocomplete="off" class="form-control" id="adress-input">
+                </div>
+            </div>
+        </div>
+        <div class="invoice mx-auto d-none">
+            <div class="header">
+                <div class="header-left">
+                    <h1>ДТУ ДАНИ–ПА ПЛАНТЕЛА ДООЕЛ</h1>
+                    <div class="city">Скопје</div>
+                </div>
+                <div class="header-right">
+                    Ул Шишман Ангеловски 5 1000<br>
+                    Скопје-Аеродром<br>
+                    + 389 (0)71 338 227<br>
+                    Депонент. Комерцијална Банка<br>
+                    Ж. С-ка: 300 0000050150 33<br>
+                    ЕДБ:4032023558550
+                </div>
+            </div>
+        
+            <div class="invoice-title-row">
+                <div class="invoice-title">Фактура бр <span id="invoice-no"></span></div>
+                <div class="client-box">
+                    <strong>Коминтент: <span id="client-name"></span></strong><br>
+                    <span id="client-address" style="font-weight: 600;"></span>
+                </div>
+            </div>
+        
+            <table class="items-table">
+                <thead>
+                <tr>
+                    <th style="width:60px;">Код на<br>артиклот</th>
+                    <th style="width:60px;">Шифра</th>
+                    <th>Опис на артиклот</th>
+                    <th style="width:50px;">Кол.</th>
+                    <th style="width:90px;">Ед. цена<br>(ден.)</th>
+                    <th style="width:100px;">Вк.цена (ден.)</th>
+                </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        
+            <div class="total-row">
+                <div class="total-box">
+                    <span class="label">Вкупно (ден.) :</span>
+                    <span class="amount"></span>
+                </div>
+            </div>
+        
+            <div class="sum-words">
+                ВКУПНА СУМА СО ЗБОРОВИ – <span id="sum-words"></span>
+            </div>
+            <div class="payment-note">
+                Плаќање во договорен рок од 8 дена. По овој рок се пресметува законска затезна камата .<br>
+                Во случај на промена на курсот на Еврото повеќе од 2% цената се менува.
+            </div>
+        
+            <div class="footer">
+                <div class="date">ДАТУМ : <span id="date"></span></div>
+                <div class="d-flex justify-content-between">
+                    <div class="signature-block" style="margin-top: 50px;">
+                        <div class="signature-line"></div>
+                        <div class="signature-label text-center">Примил</div>
+                    </div>
+                    <div class="signature-block" style="margin-top: 50px;">
+                        <div class="signature-line"></div>
+                        <div class="signature-label text-center">Овластено лице <br> за потпишување на фактури</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal за нов продукт -->
+    <div class="modal fade" id="newProductModal" tabindex="-1" aria-labelledby="newProductModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newProductModalLabel">Внеси нов продукт</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="new-product-code" class="form-label">Код</label>
+                        <input type="number" class="form-control" id="new-product-code" placeholder="пр. 138">
+                    </div>
+                    <div class="mb-3">
+                        <label for="new-product-item" class="form-label">Име на продукт</label>
+                        <input type="text" class="form-control" id="new-product-item" placeholder="пр. НОВ ПРОДУКТ">
+                    </div>
+                    <div id="new-product-msg" class="d-none"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Затвори</button>
+                    <button type="button" class="btn btn-warning" id="save-new-product">Зачувај</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery & html2pdf -->
+    <script src="https://code.jquery.com/jquery-4.0.0.min.js" integrity="sha256-OaVG6prZf4v69dPg6PhVattBXkcOWQB62pdZ3ORyrao=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // ============================================
+        // FIREBASE CONFIG - ЗАМЕНИ СО ТВОИТЕ ВРЕДНОСТИ
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCZsBN_5xfngXVdisYk12xUr-gDebeHSfs",
+            authDomain: "brainster-labs-ef731.firebaseapp.com",
+            databaseURL: "https://brainster-labs-ef731-default-rtdb.firebaseio.com",
+            projectId: "brainster-labs-ef731",
+            storageBucket: "brainster-labs-ef731.firebasestorage.app",
+            messagingSenderId: "765476472631",
+            appId: "1:765476472631:web:57c231cd5fd8705f58fcb2"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        $(document).ready(function() {
+
+            // Хардкодирани продукти (за seed и како fallback)
+            const localProducts = [
+                { code: 16, item: "НАСТАВАК ПРИКЛУЧОК" },
+                { code: 32, item: "ПЛАСТИЧНИ КУТИИ А" },
+                { code: 33, item: "ПЛАСТИЧНИ КУТИИ Б" },
+                { code: 39, item: "ДЕКОРАТИВЕН ПОСИП 100ГР" },
+                { code: 40, item: "ДЕКОРАТИВЕН СИЛИКОН С1" },
+                { code: 41, item: "ДЕКОРАТИВЕН СИЛИКОН С2" },
+                { code: 42, item: "ДЕКОРАТИВЕН СИЛИКОН С3" },
+                { code: 43, item: "ДЕКОРАТИВЕН СИЛИКОН С4" },
+                { code: 44, item: "ПЛАСТИЧЕН СЕТ П1" },
+                { code: 47, item: "СЕТ БРОЈКИ" },
+                { code: 49, item: "БУКВИ" },
+                { code: 50, item: "БРОЈКИ" },
+                { code: 56, item: "СТЕНСИЛ МАЛ" },
+                { code: 57, item: "ДЕКОРАТИВЕН ПРАВ" },
+                { code: 59, item: "ХАРТИЈА 1" },
+                { code: 60, item: "ХАРТИЈА 2" },
+                { code: 61, item: "ХАРТИЈА 3" },
+                { code: 62, item: "ПЛАСТИЧНИ КУТИИ 1" },
+                { code: 63, item: "ПЛАСТИЧНИ КУТИИ 2" },
+                { code: 65, item: "ДЕКОРАЦИЈА 1" },
+                { code: 66, item: "ДЕКОРАЦИЈА 2" },
+                { code: 67, item: "ДЕКОРАЦИЈА 3" },
+                { code: 70, item: "ВАФЛЕНИ ЛИСТОВИ" },
+                { code: 71, item: "ЦВЕЌЕ" },
+                { code: 72, item: "ШПАКЛА 1" },
+                { code: 73, item: "ШПАКЛА 2" },
+                { code: 74, item: "СТИРОПОР" },
+                { code: 75, item: "ДЕКОРАЦИЈА 4" },
+                { code: 76, item: "ДЕКОРАЦИЈА 5" },
+                { code: 77, item: "ЦЕВКИ" },
+                { code: 78, item: "ДЕКОРАЦИЈА 6" },
+                { code: 79, item: "КАРТОНСКИ КУТИИ" },
+                { code: 80, item: "ПОДМЕТАК" },
+                { code: 81, item: "ПЛАСТИЧНИ ТАЦНИ" },
+                { code: 82, item: "КОРПИ" },
+                { code: 83, item: "КЕСИ 1" },
+                { code: 84, item: "КЕСИ 2" },
+                { code: 85, item: "КЕСИ 3" },
+                { code: 86, item: "ПОДЛОГА ЗА ТОРТА Ф25" },
+                { code: 87, item: "ПОДЛОГА ЗА ТОРТА Ф30" },
+                { code: 88, item: "ПОДЛОГА ЗА ТОРТА Ф35" },
+                { code: 89, item: "ПОДЛОГА ЗА ТОСТА Ф40" },
+                { code: 90, item: "ПОДЛОГА ЗА ТОРТА Ф45" },
+                { code: 91, item: "ЧЕТКА 2" },
+                { code: 92, item: "ЧЕТКА 2.5" },
+                { code: 93, item: "ЧЕТКА 3" },
+                { code: 94, item: "ТРАКА ПВЦ 30М" },
+                { code: 95, item: "ТРАКА ПВЦ 12М" },
+                { code: 96, item: "ШПАКЛА 30 ЦМ" },
+                { code: 97, item: "ШПАКЛА 10ЦМ" },
+                { code: 98, item: "ШПАКЛА 20ЦМ" },
+                { code: 100, item: "ШПАКЛА 40ММ" },
+                { code: 101, item: "ШПАКЛА 50ММ" },
+                { code: 102, item: "ШПАКЛА 60ММ" },
+                { code: 103, item: "ШПАКЛА 70ММ" },
+                { code: 104, item: "ШПАКЛА 100ММ" },
+                { code: 105, item: "ШПАКЛА 140ММ" },
+                { code: 106, item: "ШПАКЛА 80ММ" },
+                { code: 107, item: "ДЕКОРАЦИЈА 7" },
+                { code: 108, item: "ДЕКОРАЦИЈА 8" },
+                { code: 109, item: "ДЕКОРАЦИЈА 9" },
+                { code: 110, item: "ДЕКОРАЦИЈА 10" },
+                { code: 111, item: "ТОПЧИЊА" },
+                { code: 112, item: "УКРАСИ" },
+                { code: 113, item: "ОБРАЧ" },
+                { code: 114, item: "КУТИИ 1" },
+                { code: 115, item: "КУТИИ 2" },
+                { code: 116, item: "КУТИИ 3" },
+                { code: 117, item: "ШПАКЛА 120ММ" },
+                { code: 118, item: "МЕТАЛИК БОЈА ВО ПРАВ 10ГР" },
+                { code: 119, item: "ДЕКОРАТИВНИ ШЕКЕРНИ БОМБОНИ 200ГР" },
+                { code: 120, item: "ДЕКОРАТИВЕН ПОСИП ШЕКЕРЕН 1 КГ" },
+                { code: 121, item: "КАС КАС ШЕКЕРЕН ПОСИП 1КГ" },
+                { code: 122, item: "СМС ТОПЧИЊА 200ГР" },
+                { code: 123, item: "А4 ВАФЛЕНИ ЛИСТОВИ" },
+                { code: 124, item: "А2 ШЕКЕРНИ ЛИСТОВИ" },
+                { code: 125, item: "СМС ГЛИОЗА 1КГ" },
+                { code: 126, item: "БОЈА ВО СПРЕЈ 250МЛ" },
+                { code: 127, item: "ВЕЛВЕТ СПРЕЈ 250МЛ" },
+                { code: 128, item: "ГЛИТЕР СПРЕЈ 250МЛ" },
+                { code: 129, item: "СЈАЕН СПЕЈ 250МЛ" },
+                { code: 130, item: "ГЕЛ ПРЕХРАМБЕНА БОЈА 150МЛ" },
+                { code: 131, item: "ГЕЛ ПРЕХРАМБЕНА БОЈА 100МЛ" },
+                { code: 132, item: "ТЕЧНА БОЈА 50ГР МАСЛЕНА" },
+                { code: 133, item: "ПРЕХРАМБЕНА БОЈА ВО ПРАВ 25ГР" },
+                { code: 134, item: "ДЕКОРАТИВНИ БОМБОНИ 100ГР" },
+                { code: 135, item: "ПРЕХРАМБЕН ГЛИТЕР 10 ГР" },
+                { code: 136, item: "ФОНДАН" },
+                { code: 137, item: "ИЗОМАЛТ" },
+            ];
+
+            let products = [];
+            let invoice = [];
+
+            // ============================================
+            // NUMBER TO WORDS
+            // ============================================
+            let NumberWords = [
+                ['еден', 'два', 'три', 'четири', 'пет', 'шест', 'седум', 'осум', 'девет'],
+                ['десет', 'дваесет', 'триесет', 'четириесет', 'пеесет', 'шеесет', 'седумдесет', 'осумдесет', 'девеесет'],
+                ['сто', 'двеста', 'триста', 'четрсто', 'петсто', 'шестсто', 'седумсто', 'осумсто', 'деветсто'],
+            ];
+
+            let Teens = [
+                'десет', 'единаесет', 'дванаесет', 'тринаесет', 'четиринаесет',
+                'петнаесет', 'шеснаесет', 'седумнаесет', 'осумнаесет', 'деветнаесет'
+            ];
+
+            function convertUpTo999(number) {
+                if (typeof(number) != 'string') {
+                    number = number.toString();
+                }
+
+                number = parseInt(number).toString();
+                if (number === '0') return '';
+
+                let digits = number.split('');
+                let numberLenght = digits.length - 1;
+                let parts = [];
+                let skipNext = false;
+
+                digits.forEach((digit, index) => {
+                    if (skipNext) {
+                        skipNext = false;
+                        numberLenght--;
+                        return;
+                    }
+
+                    digit = digit - 1;
+
+                    if (numberLenght === 1 && digit === 0 && index + 1 < digits.length) {
+                        let nextDigit = digits[index + 1];
+                        parts.push(Teens[nextDigit]);
+                        skipNext = true;
+                        numberLenght--;
+                        return;
+                    }
+
+                    if (digit >= 0) {
+                        parts.push(NumberWords[numberLenght][digit]);
+                    }
+                    numberLenght--;
+                });
+
+                if (parts.length > 1) {
+                    parts.splice(-1, 0, 'и');
+                }
+
+                return parts.join(' ');
+            }
+
+            function convertNumberToWords(number) {
+                if (typeof(number) != 'string') {
+                    number = number.toString();
+                }
+
+                if (number.length <= 3) {
+                    return convertUpTo999(number);
+                }
+
+                let thousandsPart = number.slice(0, -3);
+                let remainder = number.slice(-3);
+
+                let result = [];
+
+                if (thousandsPart === '1') {
+                    result.push('илјада');
+                } else {
+                    let thousandsWord = convertUpTo999(thousandsPart);
+                    if (thousandsWord) {
+                        result.push(thousandsWord + ' илјади');
+                    }
+                }
+
+                let remainderWord = convertUpTo999(remainder);
+                if (remainderWord) {
+                    result.push(remainderWord);
+                }
+
+                if (result.length > 1) {
+                    result.splice(-1, 0, 'и');
+                }
+
+                return result.join(' ');
+            }
+
+            // ============================================
+            // DATE
+            // ============================================
+            let date = new Date();
+            const formatted = date.toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            }).replace(/\//g, '.');
+
+            // ============================================
+            // FIREBASE: ВЧИТАЈ ПРОДУКТИ
+            // ============================================
+            function populateDropdowns(productList) {
+                $('.dd-options').empty();
+                productList.forEach(product => {
+                    $('.dd-options').append(`
+                        <p class="m-0 dd-option py-2 px-2 pointer" code="${product.code}">${product.item}</p>
+                    `);
+                });
+            }
+
+            // Вчитај од Firestore, ако не успее користи локални
+            db.collection('products').orderBy('code').get()
+                .then(snapshot => {
+                    if (snapshot.empty) {
+                        console.log('Нема продукти во Firebase, користам локални.');
+                        products = localProducts;
+                    } else {
+                        snapshot.forEach(doc => {
+                            products.push(doc.data());
+                        });
+                        console.log('Вчитани ' + products.length + ' продукти од Firebase.');
+                    }
+                    populateDropdowns(products);
+                })
+                .catch(err => {
+                    console.error('Firebase грешка:', err.code, err.message);
+                    alert('Firebase грешка: ' + err.message);
+                    products = localProducts;
+                    populateDropdowns(products);
+                });
+
+            // ============================================
+            // FIREBASE: ВНЕСИ НОВ ПРОДУКТ
+            // ============================================
+            $('#save-new-product').on('click', function() {
+                let code = $('#new-product-code').val().trim();
+                let item = $('#new-product-item').val().trim();
+                let msg = $('#new-product-msg');
+
+                if (!code || !item) {
+                    msg.removeClass('d-none').removeClass('alert-success')
+                       .addClass('alert alert-danger').text('Пополни ги двете полиња!');
+                    return;
+                }
+
+                db.collection('products').doc(code).set({
+                    code: parseInt(code),
+                    item: item.toUpperCase()
+                }).then(() => {
+                    // Додади во локалната низа
+                    let newProduct = { code: parseInt(code), item: item.toUpperCase() };
+                    products.push(newProduct);
+                    products.sort((a, b) => a.code - b.code);
+
+                    // Освежи ги сите dropdowns
+                    populateDropdowns(products);
+
+                    msg.removeClass('d-none').removeClass('alert-danger')
+                       .addClass('alert alert-success')
+                       .text('Продуктот "' + item.toUpperCase() + '" е зачуван!');
+
+                    // Исчисти ги полињата
+                    $('#new-product-code').val('');
+                    $('#new-product-item').val('');
+
+                    // Затвори модалот по 1.5 секунди
+                    setTimeout(() => {
+                        $('#newProductModal').modal('hide');
+                        msg.addClass('d-none');
+                    }, 1500);
+                }).catch(err => {
+                    msg.removeClass('d-none').removeClass('alert-success')
+                       .addClass('alert alert-danger').text('Грешка: ' + err.message);
+                });
+            });
+
+            // ============================================
+            // DROPDOWN ЛОГИКА
+            // ============================================
+            $(document).on('click', '.product', function() {
+                $('.dd-options').addClass('d-none');
+                $(this).next('.dd-options').toggleClass('d-none');
+            });
+
+            $(document).on('input', '.product', function() {
+                let val = $(this).val();
+
+                $(this).next('.dd-options').find('.dd-option').each(function() {
+                    if ($(this).text().toLowerCase().includes(val.toLowerCase())) { 
+                        $(this).removeClass('d-none');
+                    } else {
+                        $(this).addClass('d-none');
+                    }
+                });
+            });
+
+            $(document).on('click', '.dd-option', function() {
+                $(this).parent().prev('.product').val($(this).text());
+                $(this).parent().prev('.product').attr('code', $(this).attr('code'));
+                $(this).parent().addClass('d-none');
+            });
+
+            // ============================================
+            // КРЕИРАЈ ФАКТУРА + ЗАЧУВАЈ ВО FIREBASE
+            // ============================================
+            $('#create').on('click', function() {
+                $('.invoice').removeClass('d-none');
+                let invoiceProducts = [];
+
+                $('.product').each(function() {
+                    let price = $(this).closest(".group").find('.price').val();
+                    let quantity = $(this).closest(".group").find('.quantity').val();
+                    let total = price * quantity;
+                    if ($(this).val() != '') {
+                        invoiceProducts.push({
+                            item: $(this).val(),
+                            price: price ? price : '',
+                            code: $(this).attr('code') ? $(this).attr('code') : '',
+                            quantity: $(this).closest(".group").find('.quantity').val(),
+                            total: price * $(this).closest(".group").find('.quantity').val()
+                        });
+                    }
+                });
+
+                let overallTotal = invoiceProducts.map(product => product.total).reduce((a, b) => a + b, 0);
+                                
+                $('#date').text(formatted);
+                $('#invoice-no').text($('#invoice-no-input').val());
+                $('#client-name').text($('#komintent-input').val());
+                $('#client-address').text($('#adress-input').val());
+                $('.amount').text(overallTotal);
+                $('#sum-words').text(convertNumberToWords(overallTotal));
+
+                $('tbody').html('');
+
+                invoiceProducts.forEach((product, index) => {
+                    $('tbody').append(`
+                        <tr>
+                            <td>${index + 1}.</td>
+                            <td>${product.code}</td>
+                            <td>${product.item}</td>
+                            <td>${product.quantity}</td>
+                            <td>${product.price}</td>
+                            <td>${product.total}</td>
+                        </tr>
+                    `);
+                });
+
+                // Зачувај фактура во Firebase
+                db.collection('invoices').add({
+                    invoiceNo: $('#invoice-no-input').val(),
+                    client: $('#komintent-input').val(),
+                    address: $('#adress-input').val(),
+                    date: formatted,
+                    total: overallTotal,
+                    products: invoiceProducts,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                }).then(doc => {
+                    console.log('Фактура зачувана со ID:', doc.id);
+                }).catch(err => {
+                    console.error('Грешка при зачувување фактура:', err);
+                });
+            });
+
+            // ============================================
+            // ДОДАДИ ПРОДУКТ
+            // ============================================
+            $('#add-product').on('click', function() {
+                let existingGroups = $('.overall-group').last();
+                let groupCount = $('.overall-group').last().children('.group').length;
+                let groupWrapper = $('<div class="my-3 d-flex gap-5 overall-group"></div>');
+                let element = `<div class="d-flex gap-3 w-50 group">
+                    <div class="w-33">
+                        <label for="product-2">Продукт</label>
+                        <div class="position-relative">
+                            <input type="text" autocomplete="off" class="product form-control" id="product-2">
+                            <div class="dd-options d-none border bg-white">
+                            ${products.map(product => `<p class="m-0 dd-option py-2 px-2 pointer" code="${product.code}">${product.item}</p>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-33">
+                        <label for="price-1">Количина</label>
+                        <input type="number" class="form-control quantity" id="price-1">
+                    </div>
+                    <div class="w-33">
+                        <label for="price-3">Цена</label>
+                        <input type="number" class="form-control price" id="price-2">
+                    </div>
+                </div>`;
+
+                if (groupCount < 2) {
+                    existingGroups.append(element);
+                } else {
+                    groupWrapper.append(element);
+                    existingGroups.parent().append(groupWrapper);
+                }
+            });
+
+            // ============================================
+            // DOWNLOAD PDF
+            // ============================================
+            $('#download').on('click', downloadPDF);
+
+            function downloadPDF() {
+                const element = document.querySelector('.invoice');
+                const options = {
+                    filename:     `${formatted} - ${$('#komintent-input').val()}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2 }, 
+                    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+                };
+
+                html2pdf().set(options).from(element).save();
+            }
+
+            $(document).on('click', function(e) {
+                if (!$(e.target).hasClass('product') && !$(e.target).hasClass('dd-option')) {
+                    $('.dd-options').addClass('d-none');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
