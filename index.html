@@ -335,7 +335,7 @@
             <div class="total-row">
                 <div class="total-box">
                     <span class="label">Вкупно (ден.) :</span>
-                    <span class="amount"></span>
+                    <span class="amount"><span></span>.00</span>
                 </div>
             </div>
         
@@ -748,8 +748,8 @@
                 $('#invoice-no').text($('#invoice-no-input').val());
                 $('#client-name').text($('#komintent-input').val());
                 $('#client-address').text($('#adress-input').val());
-                $('.amount').text(overallTotal);
-                $('#sum-words').text(convertNumberToWords(overallTotal));
+                $('.amount > span').text(overallTotal);
+                $('#sum-words').text(convertNumberToWords(overallTotal) + " ДЕН");
 
                 $('tbody').html('');
 
@@ -760,8 +760,8 @@
                             <td>${product.code}</td>
                             <td>${product.item}</td>
                             <td>${product.quantity}</td>
-                            <td>${product.price}</td>
-                            <td>${product.total}</td>
+                            <td>${product.price}.00</td>
+                            <td>${product.total}.00</td>
                         </tr>
                     `);
                 });
