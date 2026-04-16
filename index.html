@@ -519,8 +519,8 @@
             // ============================================
             let NumberWords = [
                 ['еден', 'два', 'три', 'четири', 'пет', 'шест', 'седум', 'осум', 'девет'],
-                ['десет', 'дваесет', 'триесет', 'четириесет', 'пеесет', 'шеесет', 'седумдесет', 'осумдесет', 'девеесет'],
-                ['сто', 'двеста', 'триста', 'четрсто', 'петсто', 'шестсто', 'седумсто', 'осумсто', 'деветсто'],
+                ['десет', 'дваесет', 'триесет', 'четириесет', 'педесет', 'шеесет', 'седумдесет', 'осумдесет', 'деведесет'],
+                ['сто', 'двесте', 'триста', 'четиристотини', 'петстотини', 'шестстотини', 'седумстотини', 'осумстотини', 'деветстотини'],
             ];
 
             let Teens = [
@@ -623,7 +623,7 @@
                 $('.dd-options').empty();
                 productList.forEach(product => {
                     $('.dd-options').append(`
-                        <p class="m-0 dd-option py-2 px-2 pointer" code="${product.code}">${product.item}</p>
+                        <p class="m-0 dd-option py-2 px-2 pointer" code="${product.code}">${product.code} | <span class="val">${product.item}</span></p>
                     `);
                 });
             }
@@ -715,7 +715,7 @@
             });
 
             $(document).on('click', '.dd-option', function() {
-                $(this).parent().prev('.product').val($(this).text());
+                $(this).parent().prev('.product').val($(this).find("span").text());
                 $(this).parent().prev('.product').attr('code', $(this).attr('code'));
                 $(this).parent().addClass('d-none');
             });
