@@ -213,8 +213,8 @@
                         </div>
                     </div>
                     <div class="w-33">
-                        <label for="price-1">Количина</label>
-                        <input type="number" class="form-control quantity" id="price-1">
+                        <label for="quantity-1">Количина</label>
+                        <input type="number" class="form-control quantity" id="quantity-1">
                     </div>
                     <div class="w-33">
                         <label for="price-1">Цена</label>
@@ -230,11 +230,11 @@
                         </div>
                     </div>
                     <div class="w-33">
-                        <label for="price-1">Количина</label>
-                        <input type="number" class="form-control quantity" id="price-1">
+                        <label for="quantity-2">Количина</label>
+                        <input type="number" class="form-control quantity" id="quantity-2">
                     </div>
                     <div class="w-33">
-                        <label for="price-3">Цена</label>
+                        <label for="price-2">Цена</label>
                         <input type="number" class="form-control price" id="price-2">
                     </div>
                 </div>
@@ -249,8 +249,8 @@
                         </div>
                     </div>
                     <div class="w-33">
-                        <label for="price-1">Количина</label>
-                        <input type="number" class="form-control quantity" id="price-1">
+                        <label for="quantity-3">Количина</label>
+                        <input type="number" class="form-control quantity" id="quantity-3">
                     </div>
                     <div class="w-33">
                         <label for="price-3">Цена</label>
@@ -266,8 +266,8 @@
                         </div>
                     </div>
                     <div class="w-33">
-                        <label for="price-1">Количина</label>
-                        <input type="number" class="form-control price" id="price-1">
+                        <label for="quantity-4">Количина</label>
+                        <input type="number" class="form-control quantity" id="quantity-4">
                     </div>
                     <div class="w-33">
                         <label for="price-4">Цена</label>
@@ -704,8 +704,12 @@
 
             $(document).on('input', '.product', function() {
                 let val = $(this).val();
+                let dd = $(this).next('.dd-options');
 
-                $(this).next('.dd-options').find('.dd-option').each(function() {
+                // Auto-open the dropdown when typing
+                dd.removeClass('d-none');
+
+                dd.find('.dd-option').each(function() {
                     if ($(this).text().toLowerCase().includes(val.toLowerCase())) { 
                         $(this).removeClass('d-none');
                     } else {
@@ -785,27 +789,30 @@
             // ============================================
             // ДОДАДИ ПРОДУКТ
             // ============================================
+            let productCounter = 4; // 4 initial products already exist
+
             $('#add-product').on('click', function() {
+                productCounter++;
                 let existingGroups = $('.overall-group').last();
                 let groupCount = $('.overall-group').last().children('.group').length;
                 let groupWrapper = $('<div class="my-3 d-flex gap-5 overall-group"></div>');
                 let element = `<div class="d-flex gap-3 w-50 group">
                     <div class="w-33">
-                        <label for="product-2">Продукт</label>
+                        <label for="product-${productCounter}">Продукт</label>
                         <div class="position-relative">
-                            <input type="text" autocomplete="off" class="product form-control" id="product-2">
+                            <input type="text" autocomplete="off" class="product form-control" id="product-${productCounter}">
                             <div class="dd-options d-none border bg-white">
-                            ${products.map(product => `<p class="m-0 dd-option py-2 px-2 pointer" code="${product.code}">${product.item}</p>`).join('')}
+                            ${products.map(product => `<p class="m-0 dd-option py-2 px-2 pointer" code="${product.code}">${product.code} | <span class="val">${product.item}</span></p>`).join('')}
                             </div>
                         </div>
                     </div>
                     <div class="w-33">
-                        <label for="price-1">Количина</label>
-                        <input type="number" class="form-control quantity" id="price-1">
+                        <label for="quantity-${productCounter}">Количина</label>
+                        <input type="number" class="form-control quantity" id="quantity-${productCounter}">
                     </div>
                     <div class="w-33">
-                        <label for="price-3">Цена</label>
-                        <input type="number" class="form-control price" id="price-2">
+                        <label for="price-${productCounter}">Цена</label>
+                        <input type="number" class="form-control price" id="price-${productCounter}">
                     </div>
                 </div>`;
 
@@ -835,7 +842,7 @@
             }
 
             $(document).on('click', function(e) {
-                if (!$(e.target).hasClass('product') && !$(e.target).hasClass('dd-option')) {
+                if (!$(e.target).closest('.product, .dd-option').length) {
                     $('.dd-options').addClass('d-none');
                 }
             });
