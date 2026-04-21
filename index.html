@@ -189,6 +189,36 @@
     .w-33{
         width: 33.33%;
     }
+
+    .quick-add {
+        position: absolute;
+        top: 110%;
+        left: 0;
+        width: 300px;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px;
+        background: #fffbe6;
+        border: 1px solid #e6c300;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .quick-add input {
+        width: 70px;
+        padding: 2px 6px;
+        font-size: 12px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+    }
+
+    .quick-add-btn {
+        padding: 2px 10px;
+        font-size: 11px;
+        white-space: nowrap;
+    }
     </style>
 </head>
 <body>
@@ -210,6 +240,11 @@
                         <div class="position-relative">
                             <input type="text" autocomplete="off" class="product form-control" id="product-1">
                             <div class="dd-options d-none border bg-white"></div>
+                            <div class="quick-add d-none">
+                                <span>Код:</span>
+                                <input type="number" class="quick-add-code">
+                                <button class="btn btn-sm btn-warning quick-add-btn">Зачувај</button>
+                            </div>
                         </div>
                     </div>
                     <div class="w-33">
@@ -227,6 +262,11 @@
                         <div class="position-relative">
                             <input type="text" autocomplete="off" class="product form-control" id="product-2">
                             <div class="dd-options d-none border bg-white"></div>
+                            <div class="quick-add d-none">
+                                <span>Код:</span>
+                                <input type="number" class="quick-add-code">
+                                <button class="btn btn-sm btn-warning quick-add-btn">Зачувај</button>
+                            </div>
                         </div>
                     </div>
                     <div class="w-33">
@@ -246,6 +286,11 @@
                         <div class="position-relative">
                             <input type="text" autocomplete="off" class="product form-control" id="product-3">
                             <div class="dd-options d-none border bg-white"></div>
+                            <div class="quick-add d-none">
+                                <span>Код:</span>
+                                <input type="number" class="quick-add-code">
+                                <button class="btn btn-sm btn-warning quick-add-btn">Зачувај</button>
+                            </div>
                         </div>
                     </div>
                     <div class="w-33">
@@ -263,6 +308,11 @@
                         <div class="position-relative">
                             <input type="text" autocomplete="off"  class="product form-control" id="product-4">
                             <div class="dd-options d-none border bg-white"></div>
+                            <div class="quick-add d-none">
+                                <span>Код:</span>
+                                <input type="number" class="quick-add-code">
+                                <button class="btn btn-sm btn-warning quick-add-btn">Зачувај</button>
+                            </div>
                         </div>
                     </div>
                     <div class="w-33">
@@ -699,29 +749,86 @@
             // ============================================
             $(document).on('click', '.product', function() {
                 $('.dd-options').addClass('d-none');
+                $('.quick-add').addClass('d-none');
                 $(this).next('.dd-options').toggleClass('d-none');
             });
 
             $(document).on('input', '.product', function() {
                 let val = $(this).val();
                 let dd = $(this).next('.dd-options');
+                let quickAdd = $(this).closest('.position-relative').find('.quick-add');
 
                 // Auto-open the dropdown when typing
                 dd.removeClass('d-none');
 
+                let hasMatch = false;
                 dd.find('.dd-option').each(function() {
                     if ($(this).text().toLowerCase().includes(val.toLowerCase())) { 
                         $(this).removeClass('d-none');
+                        hasMatch = true;
                     } else {
                         $(this).addClass('d-none');
                     }
                 });
+
+                // Show quick-add if typing and no exact match exists
+                if (val.trim() !== '' && !hasMatch) {
+                    dd.addClass('d-none');
+                    quickAdd.removeClass('d-none');
+                } else {
+                    quickAdd.addClass('d-none');
+                }
             });
 
             $(document).on('click', '.dd-option', function() {
                 $(this).parent().prev('.product').val($(this).find("span").text());
                 $(this).parent().prev('.product').attr('code', $(this).attr('code'));
                 $(this).parent().addClass('d-none');
+                $(this).closest('.position-relative').find('.quick-add').addClass('d-none');
+            });
+
+            // ============================================
+            // INLINE QUICK-ADD PRODUCT
+            // ============================================
+            $(document).on('click', '.quick-add-btn', function() {
+                let wrapper = $(this).closest('.position-relative');
+                let productInput = wrapper.find('.product');
+                let codeInput = $(this).siblings('.quick-add-code');
+                let item = productInput.val().trim();
+                let code = codeInput.val().trim();
+
+                if (!item || !code) {
+                    codeInput.css('border-color', 'red');
+                    return;
+                }
+
+                codeInput.css('border-color', '#ccc');
+                let btn = $(this);
+                btn.prop('disabled', true).text('...');
+
+                db.collection('products').doc(code).set({
+                    code: parseInt(code),
+                    item: item.toUpperCase()
+                }).then(() => {
+                    let newProduct = { code: parseInt(code), item: item.toUpperCase() };
+                    products.push(newProduct);
+                    products.sort((a, b) => a.code - b.code);
+
+                    populateDropdowns(products);
+
+                    // Set the value and code on the input
+                    productInput.val(item.toUpperCase());
+                    productInput.attr('code', code);
+
+                    // Hide quick-add and clear code input
+                    wrapper.find('.quick-add').addClass('d-none');
+                    codeInput.val('');
+
+                    btn.prop('disabled', false).text('Зачувај');
+                }).catch(err => {
+                    alert('Грешка: ' + err.message);
+                    btn.prop('disabled', false).text('Зачувај');
+                });
             });
 
             // ============================================
@@ -804,6 +911,11 @@
                             <div class="dd-options d-none border bg-white">
                             ${products.map(product => `<p class="m-0 dd-option py-2 px-2 pointer" code="${product.code}">${product.code} | <span class="val">${product.item}</span></p>`).join('')}
                             </div>
+                            <div class="quick-add d-none">
+                                <span>Код:</span>
+                                <input type="number" class="quick-add-code">
+                                <button class="btn btn-sm btn-warning quick-add-btn">Зачувај</button>
+                            </div>
                         </div>
                     </div>
                     <div class="w-33">
@@ -842,8 +954,9 @@
             }
 
             $(document).on('click', function(e) {
-                if (!$(e.target).closest('.product, .dd-option').length) {
+                if (!$(e.target).closest('.product, .dd-option, .quick-add').length) {
                     $('.dd-options').addClass('d-none');
+                    $('.quick-add').addClass('d-none');
                 }
             });
         });
