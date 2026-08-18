@@ -7,17 +7,289 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&display=swap');
-    
+
+    :root {
+        --brand: #1a3a6b;
+        --brand-600: #16325c;
+        --bg: #eceef2;
+        --card: #ffffff;
+        --line: #e3e6ec;
+        --muted: #6b7280;
+        --radius: 14px;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    
+
     body {
         font-family: 'Noto Sans', sans-serif;
-        background: #e8e8e8;
-        display: flex;
-        justify-content: center;
-        padding: 40px 20px;
+        background: var(--bg);
+        color: #1a1a1a;
+        padding: 24px 16px 56px;
     }
-    
+
+    .container { max-width: 1040px; }
+
+    /* ---------- App toolbar ---------- */
+    .app-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(16,24,40,.05);
+        position: sticky;
+        top: 12px;
+        z-index: 30;
+    }
+
+    .app-toolbar h1 {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: .5px;
+        color: var(--brand);
+        margin: 0;
+    }
+
+    .toolbar-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .toolbar-actions .btn {
+        font-weight: 600;
+        border-radius: 10px;
+        padding: 8px 16px;
+    }
+
+    /* копче за враќање на почетната страница, на крајот од лентата */
+    .paci-nazad {
+        display: inline-block;
+        margin-left: 18px;
+        background: #fff;
+        color: var(--brand);
+        border: 2px solid var(--brand);
+        border-radius: 10px;
+        padding: 6px 16px;
+        font-weight: 600;
+        font-size: 15px;
+        line-height: 1.5;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .paci-nazad:hover,
+    .paci-nazad:focus {
+        background: var(--brand);
+        color: #fff;
+        outline: none;
+    }
+
+    @media print { .paci-nazad { display: none !important; } }
+
+    /* ---------- Entry panels ---------- */
+    .card-panel {
+        background: var(--card);
+        border: 1px solid var(--line) !important;
+        border-radius: var(--radius) !important;
+        padding: 18px !important;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(16,24,40,.05);
+    }
+
+    .card-panel label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        margin-bottom: 4px;
+    }
+
+    .card-panel .form-control {
+        border-radius: 9px;
+    }
+
+    .card-panel .form-control:focus {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px rgba(26,58,107,.12);
+    }
+
+    .details-row {
+        flex-wrap: wrap;
+    }
+
+    .details-row .w-33 {
+        flex: 1 1 0;
+        width: auto;
+        min-width: 0;
+    }
+
+    /* ---------- Custom date picker ---------- */
+    .date-field { position: relative; }
+
+    .date-display {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+        text-align: left;
+        background: #fff;
+        cursor: pointer;
+    }
+
+    .date-display .date-text {
+        color: #1a1a1a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .date-display svg {
+        width: 18px;
+        height: 18px;
+        color: var(--brand);
+        flex: none;
+    }
+
+    .date-picker {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        z-index: 40;
+        width: 300px;
+        max-width: 92vw;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: 0 12px 32px rgba(16,24,40,.18);
+        padding: 14px;
+        user-select: none;
+    }
+
+    .dp-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    .dp-title {
+        font-weight: 700;
+        color: var(--brand);
+        font-size: 14px;
+    }
+
+    .dp-nav {
+        border: none;
+        background: var(--bg);
+        color: var(--brand);
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background .15s ease;
+    }
+
+    .dp-nav:hover { background: #e2e6ee; }
+
+    .dp-weekdays,
+    .dp-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+    }
+
+    .dp-weekdays { margin-bottom: 4px; }
+
+    .dp-wd {
+        text-align: center;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        padding: 4px 0;
+    }
+
+    .dp-day {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        aspect-ratio: 1 / 1;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #1a1a1a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background .12s ease;
+    }
+
+    .dp-day:hover { background: var(--bg); }
+    .dp-muted { color: #c0c4cc; }
+
+    .dp-today-day {
+        box-shadow: inset 0 0 0 1.5px var(--brand);
+        font-weight: 600;
+    }
+
+    .dp-selected,
+    .dp-selected:hover {
+        background: var(--brand);
+        color: #fff;
+        font-weight: 700;
+    }
+
+    .dp-footer {
+        margin-top: 10px;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .dp-today {
+        border: none;
+        background: transparent;
+        color: var(--brand);
+        font-weight: 600;
+        font-size: 12px;
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 8px;
+        transition: background .15s ease;
+    }
+
+    .dp-today:hover { background: var(--bg); }
+
+    /* Give the Продукт field more room; keep number fields compact */
+    .overall-group {
+        gap: 1.5rem !important;
+    }
+
+    .group .w-33 {
+        width: auto;
+        min-width: 0;
+    }
+
+    /* Продукт column (first) grows widest */
+    .group .w-33:first-child {
+        flex: 2.4 1 0;
+    }
+
+    /* Количина / Цена columns stay narrow but readable */
+    .group .w-33:nth-child(2),
+    .group .w-33:nth-child(3) {
+        flex: 1 1 0;
+    }
+
     .invoice {
         width: 780px;
         background: #fff;
@@ -168,14 +440,25 @@
         font-size: 12px;
     }
 
+    .invoice-wrap {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 4px;
+    }
+
     .dd-options {
         position: absolute;
         top: 110%;
         left: 0;
-        width: 300px;
-        z-index: 1;
-        max-height: 500px;
-        overflow-y: scroll;
+        width: 100%;
+        min-width: 240px;
+        max-width: 340px;
+        z-index: 10;
+        max-height: 320px;
+        overflow-y: auto;
+        border-radius: 8px;
+        box-shadow: 0 6px 24px rgba(16,24,40,.14);
     }
 
     .dd-option:hover{
@@ -191,11 +474,17 @@
     }
 
     .quick-add {
+        position: absolute;
+        top: 110%;
+        left: 0;
+        width: 100%;
+        min-width: 240px;
+        max-width: 340px;
+        z-index: 11;
         display: flex;
         align-items: center;
         gap: 6px;
-        margin-top: 4px;
-        padding: 4px 8px;
+        padding: 6px 8px;
         background: #fffbe6;
         border: 1px solid #e6c300;
         border-radius: 4px;
@@ -215,26 +504,65 @@
         font-size: 11px;
         white-space: nowrap;
     }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 991px) {
+        .overall-group {
+            flex-direction: column;
+            gap: 16px !important;
+        }
+        .group.w-50 {
+            width: 100% !important;
+        }
+    }
+
+    @media (max-width: 575px) {
+        body {
+            padding: 14px 10px 40px;
+        }
+        .app-toolbar {
+            flex-direction: column;
+            align-items: stretch;
+            padding: 12px 14px;
+            top: 8px;
+        }
+        .app-toolbar h1 {
+            text-align: center;
+            font-size: 20px;
+        }
+        .toolbar-actions {
+            width: 100%;
+        }
+        .toolbar-actions .btn {
+            flex: 1 1 calc(50% - 8px);
+            text-align: center;
+            padding: 10px 8px;
+        }
+        /* Stack product / quantity / price */
+        .group {
+            flex-wrap: wrap;
+            gap: 12px !important;
+        }
+        .group .w-33 {
+            width: 100% !important;
+        }
+        /* Stack invoice detail fields */
+        .details-row {
+            flex-direction: column;
+            gap: 12px !important;
+        }
+        .details-row .w-33 {
+            width: 100% !important;
+            flex: 0 0 auto;
+        }
+    }
     </style>
 </head>
 <body>
-    <style>
-    /* копче за враќање на почетната страница, на десниот крај на лентата */
-    .paci-nazad{
-        display:inline-block; margin-left:26px;
-        background:#fff; color:#1a1a1a; border:2px solid #c05621;
-        border-radius:8px; padding:7px 16px;
-        font:600 15px/1.4 "Segoe UI",Tahoma,Arial,sans-serif;
-        text-decoration:none; white-space:nowrap; vertical-align:middle;
-    }
-    .paci-nazad:hover,.paci-nazad:focus{background:#c05621;color:#fff;outline:none}
-    @media print{ .paci-nazad{display:none !important} }
-    </style>
-
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="app-toolbar">
             <h1>Фактурa</h1>
-            <div>
+            <div class="toolbar-actions">
                 <div class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#newProductModal">Внеси нов продукт</div>
                 <div class="btn btn-primary" id="add-product">Додади продукт</div>
                 <div class="btn btn-success" id="create">Креирај фактура</div>
@@ -243,7 +571,7 @@
                 <a class="paci-nazad" href="../index.html">← Назад</a>
             </div>
         </div>
-        <div class="row border bg-white p-2 rounded mb-3 product-group">
+        <div class="row card-panel product-group">
             <div class="my-3 d-flex gap-5 overall-group">
                 <div class="d-flex gap-3 w-50 group">
                     <div class="w-33">
@@ -338,22 +666,52 @@
             </div>
         </div>
 
-        <div class="row border bg-white p-2 rounded mb-3">
-            <div class="d-flex gap-3">
+        <div class="row card-panel">
+            <div class="d-flex gap-3 details-row">
                 <div class="w-33">
                     <label for="invoice-no">Број на фактура</label>
                     <input type="text" autocomplete="off" class="form-control" id="invoice-no-input">
                 </div>
                 <div class="w-33">
                     <label for="komintent">Коминтент</label>
-                    <input type="text" autocomplete="off" class="form-control" id="komintent-input">
+                    <div class="position-relative">
+                        <input type="text" autocomplete="off" class="form-control" id="komintent-input">
+                        <div class="dd-options client-dd-options d-none border bg-white"></div>
+                        <div class="quick-add client-quick-add d-none">
+                            <span>Зачувај нов комитент?</span>
+                            <button type="button" class="btn btn-sm btn-warning save-client-btn">Зачувај</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="w-33">
                     <label for="adress">Адреса</label>
                     <input type="text" autocomplete="off" class="form-control" id="adress-input">
                 </div>
+                <div class="w-33">
+                    <label for="date-display">Датум</label>
+                    <div class="date-field position-relative">
+                        <input type="hidden" id="date-input">
+                        <button type="button" class="date-display form-control" id="date-display">
+                            <span class="date-text">—</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        </button>
+                        <div class="date-picker d-none">
+                            <div class="dp-header">
+                                <button type="button" class="dp-nav" data-nav="-1" aria-label="Претходен месец">‹</button>
+                                <div class="dp-title"></div>
+                                <button type="button" class="dp-nav" data-nav="1" aria-label="Следен месец">›</button>
+                            </div>
+                            <div class="dp-weekdays"></div>
+                            <div class="dp-grid"></div>
+                            <div class="dp-footer">
+                                <button type="button" class="dp-today">Денес</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+        <div class="invoice-wrap">
         <div class="invoice mx-auto d-none">
             <div class="header">
                 <div class="header-left">
@@ -421,6 +779,7 @@
                     </div>
                 </div>
             </div>
+        </div>
         </div>
     </div>
 
@@ -573,6 +932,7 @@
             ];
 
             let products = [];
+            let clients = []; // комитенти вчитани од Firestore
             let invoice = [];
 
             // ============================================
@@ -677,6 +1037,130 @@
                 year: 'numeric'
             }).replace(/\//g, '.');
 
+            // Датумот по дефолт е денес (може да се смени во минато/иднина)
+            const todayISO = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            $('#date-input').val(todayISO);
+
+            // ISO (yyyy-mm-dd) -> dd.mm.yyyy; ако е празно врати денешен датум
+            function getInvoiceDate() {
+                let iso = $('#date-input').val();
+                if (!iso) return formatted;
+                let [y, m, d] = iso.split('-');
+                return `${d}.${m}.${y}`;
+            }
+
+            // ============================================
+            // CUSTOM DATE PICKER
+            // ============================================
+            (function initDatePicker() {
+                const MONTHS = ['Јануари', 'Февруари', 'Март', 'Април', 'Мај', 'Јуни',
+                    'Јули', 'Август', 'Септември', 'Октомври', 'Ноември', 'Декември'];
+                const WEEKDAYS = ['Пон', 'Вто', 'Сре', 'Чет', 'Пет', 'Саб', 'Нед'];
+
+                const $input = $('#date-input');            // скриен ISO датум
+                const $text = $('#date-display .date-text'); // видлив текст
+                const $picker = $('.date-picker');
+                const $title = $('.dp-title');
+                const $grid = $('.dp-grid');
+
+                let view; // { y, m } тековно прикажан месец
+
+                function parseISO(iso) {
+                    if (!iso) return null;
+                    let [y, m, d] = iso.split('-').map(Number);
+                    return new Date(y, m - 1, d);
+                }
+                function toISO(dt) {
+                    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+                }
+                function fmt(dt) {
+                    return `${String(dt.getDate()).padStart(2, '0')}.${String(dt.getMonth() + 1).padStart(2, '0')}.${dt.getFullYear()}`;
+                }
+                function sameDay(a, b) {
+                    return a && b && a.getFullYear() === b.getFullYear()
+                        && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+                }
+
+                $('.dp-weekdays').html(WEEKDAYS.map(w => `<span class="dp-wd">${w}</span>`).join(''));
+
+                function render() {
+                    let sel = parseISO($input.val());
+                    let today = new Date();
+                    $title.text(`${MONTHS[view.m]} ${view.y}`);
+
+                    let first = new Date(view.y, view.m, 1);
+                    let startOffset = (first.getDay() + 6) % 7; // понеделник = 0
+                    let daysInMonth = new Date(view.y, view.m + 1, 0).getDate();
+                    let prevDays = new Date(view.y, view.m, 0).getDate();
+
+                    let cells = [];
+                    for (let i = 0; i < startOffset; i++) {
+                        let d = prevDays - startOffset + 1 + i;
+                        cells.push({ d, muted: true, dt: new Date(view.y, view.m - 1, d) });
+                    }
+                    for (let d = 1; d <= daysInMonth; d++) {
+                        cells.push({ d, muted: false, dt: new Date(view.y, view.m, d) });
+                    }
+                    let trailing = 42 - cells.length;
+                    for (let i = 1; i <= trailing; i++) {
+                        cells.push({ d: i, muted: true, dt: new Date(view.y, view.m + 1, i) });
+                    }
+
+                    $grid.html(cells.map(c => {
+                        let cls = 'dp-day';
+                        if (c.muted) cls += ' dp-muted';
+                        if (sameDay(c.dt, today)) cls += ' dp-today-day';
+                        if (sameDay(c.dt, sel)) cls += ' dp-selected';
+                        return `<button type="button" class="${cls}" data-iso="${toISO(c.dt)}">${c.d}</button>`;
+                    }).join(''));
+                }
+
+                function open() {
+                    let sel = parseISO($input.val()) || new Date();
+                    view = { y: sel.getFullYear(), m: sel.getMonth() };
+                    render();
+                    $picker.removeClass('d-none');
+                }
+                function close() { $picker.addClass('d-none'); }
+
+                function setDate(iso) {
+                    $input.val(iso);
+                    $text.text(fmt(parseISO(iso)));
+                }
+
+                // Прикажи го почетниот датум
+                if ($input.val()) $text.text(fmt(parseISO($input.val())));
+
+                $('#date-display').on('click', function(e) {
+                    e.stopPropagation();
+                    $picker.hasClass('d-none') ? open() : close();
+                });
+
+                $picker.on('click', function(e) { e.stopPropagation(); });
+
+                $('.dp-nav').on('click', function() {
+                    view.m += parseInt($(this).attr('data-nav'), 10);
+                    if (view.m < 0) { view.m = 11; view.y--; }
+                    if (view.m > 11) { view.m = 0; view.y++; }
+                    render();
+                });
+
+                $grid.on('click', '.dp-day', function() {
+                    setDate($(this).attr('data-iso'));
+                    close();
+                });
+
+                $('.dp-today').on('click', function() {
+                    let t = new Date();
+                    setDate(toISO(t));
+                    view = { y: t.getFullYear(), m: t.getMonth() };
+                    render();
+                    close();
+                });
+
+                $(document).on('click', close);
+            })();
+
             // ============================================
             // FIREBASE: ВЧИТАЈ ПРОДУКТИ
             // ============================================
@@ -709,6 +1193,116 @@
                     products = localProducts;
                     populateDropdowns(products);
                 });
+
+            // ============================================
+            // FIREBASE: КОМИТЕНТИ (вчитување, избор, зачувување)
+            // ============================================
+            function populateClientDropdown() {
+                let $dd = $('.client-dd-options');
+                $dd.empty();
+                clients.forEach(client => {
+                    $dd.append(`
+                        <p class="m-0 client-dd-option py-2 px-2 pointer" data-address="${(client.address || '').replace(/"/g, '&quot;')}"><span class="val">${client.name}</span><br><small class="text-muted">${client.address || ''}</small></p>
+                    `);
+                });
+            }
+
+            // Вчитај комитенти од Firestore
+            db.collection('clients').orderBy('name').get()
+                .then(snapshot => {
+                    snapshot.forEach(doc => clients.push(doc.data()));
+                    console.log('Вчитани ' + clients.length + ' комитенти од Firebase.');
+                    populateClientDropdown();
+                })
+                .catch(err => {
+                    console.error('Грешка при вчитување комитенти:', err.code, err.message);
+                });
+
+            // Зачувај (upsert) комитент во Firestore + локалната низа
+            function saveClient(name, address) {
+                name = (name || '').trim();
+                address = (address || '').trim();
+                if (!name) return Promise.reject(new Error('Празно име на комитент'));
+
+                return db.collection('clients').doc(name).set({
+                    name: name,
+                    address: address
+                }).then(() => {
+                    let existing = clients.find(c => c.name === name);
+                    if (existing) {
+                        existing.address = address;
+                    } else {
+                        clients.push({ name: name, address: address });
+                        clients.sort((a, b) => a.name.localeCompare(b.name));
+                    }
+                    populateClientDropdown();
+                });
+            }
+
+            // Отвори dropdown на клик (само ако има зачувани комитенти)
+            $(document).on('click', '#komintent-input', function() {
+                $('.dd-options').not('.client-dd-options').addClass('d-none');
+                $('.quick-add').not('.client-quick-add').addClass('d-none');
+                if (clients.length > 0) {
+                    $('.client-dd-options .client-dd-option').removeClass('d-none');
+                    $('.client-dd-options').removeClass('d-none');
+                }
+            });
+
+            // Филтрирај додека куцаш; понуди зачувување ако нема совпаѓање
+            $(document).on('input', '#komintent-input', function() {
+                let val = $(this).val();
+                let $dd = $('.client-dd-options');
+                let $quick = $('.client-quick-add');
+                $dd.removeClass('d-none');
+
+                let hasMatch = false;
+                let exactMatch = false;
+                $dd.find('.client-dd-option').each(function() {
+                    let name = $(this).find('.val').text();
+                    if (name.toLowerCase().includes(val.toLowerCase())) {
+                        $(this).removeClass('d-none');
+                        hasMatch = true;
+                    } else {
+                        $(this).addClass('d-none');
+                    }
+                    if (name.toLowerCase() === val.trim().toLowerCase()) exactMatch = true;
+                });
+
+                // Понуди зачувување кога има внесено ново име (нема точно совпаѓање)
+                if (val.trim() !== '' && !exactMatch) {
+                    $quick.removeClass('d-none');
+                } else {
+                    $quick.addClass('d-none');
+                }
+                if (!hasMatch) $dd.addClass('d-none');
+            });
+
+            // Избери постоечки комитент -> пополни име + адреса
+            $(document).on('click', '.client-dd-option', function() {
+                $('#komintent-input').val($(this).find('.val').text());
+                $('#adress-input').val($(this).attr('data-address'));
+                $('.client-dd-options').addClass('d-none');
+                $('.client-quick-add').addClass('d-none');
+            });
+
+            // Зачувај нов комитент од inline копчето
+            $(document).on('click', '.save-client-btn', function() {
+                let btn = $(this);
+                let name = $('#komintent-input').val().trim();
+                let address = $('#adress-input').val().trim();
+                if (!name) return;
+
+                btn.prop('disabled', true).text('...');
+                saveClient(name, address).then(() => {
+                    $('.client-quick-add').addClass('d-none');
+                    $('.client-dd-options').addClass('d-none');
+                    btn.prop('disabled', false).text('Зачувај');
+                }).catch(err => {
+                    alert('Грешка при зачувување комитент: ' + err.message);
+                    btn.prop('disabled', false).text('Зачувај');
+                });
+            });
 
             // ============================================
             // FIREBASE: ВНЕСИ НОВ ПРОДУКТ
@@ -760,6 +1354,7 @@
             // ============================================
             $(document).on('click', '.product', function() {
                 $('.dd-options').addClass('d-none');
+                $('.quick-add').addClass('d-none');
                 $(this).next('.dd-options').toggleClass('d-none');
             });
 
@@ -852,24 +1447,21 @@
                     let price = $(this).closest(".group").find('.price').val();
                     let quantity = $(this).closest(".group").find('.quantity').val();
                     let total = price * quantity;
-                    let code = $(this).attr('code');
-                    if (!code) {
-                        code = $(this).closest('.position-relative').find('.quick-add-code').val() || '';
-                    }
                     if ($(this).val() != '') {
                         invoiceProducts.push({
                             item: $(this).val(),
                             price: price ? price : '',
-                            code: code,
-                            quantity: quantity,
-                            total: price * quantity
+                            code: $(this).attr('code') ? $(this).attr('code') : '',
+                            quantity: $(this).closest(".group").find('.quantity').val(),
+                            total: price * $(this).closest(".group").find('.quantity').val()
                         });
                     }
                 });
 
                 let overallTotal = invoiceProducts.map(product => product.total).reduce((a, b) => a + b, 0);
-                                
-                $('#date').text(formatted);
+                let invoiceDate = getInvoiceDate();
+
+                $('#date').text(invoiceDate);
                 $('#invoice-no').text($('#invoice-no-input').val());
                 $('#client-name').text($('#komintent-input').val());
                 $('#client-address').text($('#adress-input').val());
@@ -896,7 +1488,7 @@
                     invoiceNo: $('#invoice-no-input').val(),
                     client: $('#komintent-input').val(),
                     address: $('#adress-input').val(),
-                    date: formatted,
+                    date: invoiceDate,
                     total: overallTotal,
                     products: invoiceProducts,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -905,6 +1497,13 @@
                 }).catch(err => {
                     console.error('Грешка при зачувување фактура:', err);
                 });
+
+                // Автоматски зачувај/освежи го комитентот
+                let clientName = $('#komintent-input').val();
+                if (clientName && clientName.trim()) {
+                    saveClient(clientName, $('#adress-input').val())
+                        .catch(err => console.error('Грешка при зачувување комитент:', err));
+                }
             });
 
             // ============================================
@@ -958,7 +1557,7 @@
             function downloadPDF() {
                 const element = document.querySelector('.invoice');
                 const options = {
-                    filename:     `${formatted} - ${$('#komintent-input').val()}.pdf`,
+                    filename:     `${getInvoiceDate()} - ${$('#komintent-input').val()}.pdf`,
                     image:        { type: 'jpeg', quality: 0.98 },
                     html2canvas:  { scale: 2 }, 
                     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
@@ -969,7 +1568,12 @@
 
             $(document).on('click', function(e) {
                 if (!$(e.target).closest('.product, .dd-option, .quick-add').length) {
-                    $('.dd-options').addClass('d-none');
+                    $('.dd-options').not('.client-dd-options').addClass('d-none');
+                    $('.quick-add').not('.client-quick-add').addClass('d-none');
+                }
+                if (!$(e.target).closest('#komintent-input, .client-dd-option, .client-quick-add').length) {
+                    $('.client-dd-options').addClass('d-none');
+                    $('.client-quick-add').addClass('d-none');
                 }
             });
         });
