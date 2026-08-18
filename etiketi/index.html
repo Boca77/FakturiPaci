@@ -335,19 +335,21 @@ body {
 </head>
 <body>
 
-<!-- враќање на почетната страница -->
-<a class="paci-nazad" href="../index.html">← Назад</a>
 <style>
+/* копче за враќање на почетната страница, во десниот дел на лентата */
 .paci-nazad{
-  position:fixed; top:14px; left:14px; z-index:99999;
-  background:#fff; color:#1a1815; border:2px solid var(--accent);
-  border-radius:8px; padding:9px 18px;
-  font:600 17px/1 var(--font-body);
-  text-decoration:none; box-shadow:0 2px 8px rgba(0,0,0,.15);
+  position: absolute; right: 28px; top: 50%; transform: translateY(-50%);
+  background: transparent; color: #fff;
+  border: 2px solid rgba(255,255,255,0.35); border-radius: 8px;
+  padding: 9px 17px;
+  font: 600 15px/1 var(--font-body);
+  text-decoration: none; white-space: nowrap;
+  transition: background .15s, border-color .15s;
 }
-.paci-nazad:hover,.paci-nazad:focus{background:var(--accent);color:#fff;outline:none}
-body{padding-top:70px !important}
-@media print{ .paci-nazad{display:none !important} body{padding-top:0 !important} }
+.paci-nazad:hover, .paci-nazad:focus{
+  background: var(--accent); border-color: var(--accent); outline: none;
+}
+@media print{ .paci-nazad{ display:none !important } }
 </style>
 
 <canvas id="pdf-canvas"></canvas>
@@ -363,6 +365,7 @@ body{padding-top:70px !important}
       <h1>Генератор на Етикети</h1>
     </div>
     <p>F-19 · 63.5 × 46.6 mm · 18 етикети / А4</p>
+    <a class="paci-nazad" href="../index.html">← Назад</a>
   </div>
 </div>
 

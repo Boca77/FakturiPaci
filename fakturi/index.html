@@ -218,19 +218,17 @@
     </style>
 </head>
 <body>
-    <!-- враќање на почетната страница -->
-    <a class="paci-nazad" href="../index.html">← Назад</a>
     <style>
+    /* копче за враќање на почетната страница, на десниот крај на лентата */
     .paci-nazad{
-        position:fixed; top:14px; left:14px; z-index:99999;
+        display:inline-block; margin-left:26px;
         background:#fff; color:#1a1a1a; border:2px solid #c05621;
-        border-radius:8px; padding:9px 18px;
-        font:600 17px/1 "Segoe UI",Tahoma,Arial,sans-serif;
-        text-decoration:none; box-shadow:0 2px 8px rgba(0,0,0,.15);
+        border-radius:8px; padding:7px 16px;
+        font:600 15px/1.4 "Segoe UI",Tahoma,Arial,sans-serif;
+        text-decoration:none; white-space:nowrap; vertical-align:middle;
     }
     .paci-nazad:hover,.paci-nazad:focus{background:#c05621;color:#fff;outline:none}
-    body{padding-top:70px !important}
-    @media print{ .paci-nazad{display:none !important} body{padding-top:0 !important} }
+    @media print{ .paci-nazad{display:none !important} }
     </style>
 
     <div class="container">
@@ -241,6 +239,8 @@
                 <div class="btn btn-primary" id="add-product">Додади продукт</div>
                 <div class="btn btn-success" id="create">Креирај фактура</div>
                 <div class="btn btn-success" id="download">Download</div>
+                <!-- враќање на почетната страница -->
+                <a class="paci-nazad" href="../index.html">← Назад</a>
             </div>
         </div>
         <div class="row border bg-white p-2 rounded mb-3 product-group">
