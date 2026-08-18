@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Подготовка на слики за печатење на А4</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <!-- враќање на почетната страница -->
+  <a class="paci-nazad" href="../index.html">← Назад</a>
+  <h1>Слики</h1>
+  <p class="tag">Внеси слики · намести ја големината · испечати на А4 во вистинска големина</p>
+</header>
+
+<main class="layout">
+
+  <!-- ─────────── контроли ─────────── -->
+  <aside class="panel">
+
+    <!-- 1 ─────────────────────────────────────── -->
+    <section class="block">
+      <h2><b class="step">1</b> Внеси слики</h2>
+
+      <div id="drop" class="drop" tabindex="0">
+        <input type="file" id="file" accept="image/*" multiple hidden>
+        <div class="drop-inner">
+          <strong>Кликни овде за да избереш слики</strong>
+          <span>или довлечи ги врз ова поле · може повеќе одеднаш</span>
+        </div>
+      </div>
+
+      <ul id="list" class="thumbs"></ul>
+      <p id="listHint" class="hint" hidden>
+        Влечи ги сликичките за да го смениш редоследот. Последната оди најгоре кога се преклопуваат.
+      </p>
+
+      <div class="btnrow">
+        <button id="dup" type="button" disabled>Копирај</button>
+        <button id="del" type="button" disabled>Избриши</button>
+      </div>
+      <button id="arrange" type="button" disabled>Подреди ги една до друга</button>
+      <button id="clear" type="button" class="ghost" disabled>Исчисти сѐ</button>
+    </section>
+
+    <!-- 2 ─────────────────────────────────────── -->
+    <section class="block">
+      <h2><b class="step">2</b> Големина на сликата</h2>
+
+      <p id="selNone" class="hint big-hint">
+        Кликни на слика во листата или на страницата за да ја избереш.
+      </p>
+
+      <div id="selCtl" class="off">
+        <label class="row">
+          <span>Мерка</span>
+          <select id="unit">
+            <option value="mm" selected>милиметри (мм)</option>
+            <option value="cm">сантиметри (см)</option>
+            <option value="in">инчи</option>
+          </select>
+        </label>
+
+        <div class="row dims">
+          <label><span>Ширина</span><input type="number" id="w" min="1" step="0.1"></label>
+          <button id="lock" class="lock is-on" type="button"
+                  title="Задржи ги пропорциите на сликата"
+                  aria-label="Задржи ги пропорциите" aria-pressed="true">1:1</button>
+          <label><span>Висина</span><input type="number" id="h" min="1" step="0.1"></label>
+        </div>
+        <p class="hint">Копчето <b>1:1</b> ги држи пропорциите за да не се искриви сликата.</p>
+
+        <label class="row">
+          <span>Готови големини</span>
+          <select id="preset">
+            <option value="">по мој избор…</option>
+            <option value="35,45">Пасошка слика 35 × 45 мм</option>
+            <option value="85.6,53.98">Картичка 85,6 × 54 мм</option>
+            <option value="100,150">Слика 10 × 15 см</option>
+            <option value="101.6,152.4">Слика 4 × 6 инчи</option>
+            <option value="105,148">А6 105 × 148 мм</option>
+            <option value="148,210">А5 148 × 210 мм</option>
+            <option value="210,297">Цела А4 страница</option>
+          </select>
+        </label>
+
+        <button id="center" type="button">Стави ја на средина</button>
+        <button id="tile" type="button">Пополни ја страницата со неа</button>
+
+        <p id="outInfo" class="hint">—</p>
+      </div>
+    </section>
+
+    <!-- 3 ─────────────────────────────────────── -->
+    <section class="block">
+      <h2><b class="step">3</b> Страница и печатење</h2>
+
+      <label class="row">
+        <span>Положба на хартијата</span>
+        <select id="orient">
+          <option value="portrait" selected>Исправено (210 × 297 мм)</option>
+          <option value="landscape">Легнато (297 × 210 мм)</option>
+        </select>
+      </label>
+
+      <label class="row">
+        <span>Празен раб наоколу (мм)</span>
+        <input type="number" id="margin" min="0" step="1" value="10">
+      </label>
+
+      <button id="print" class="primary" disabled>Печати на А4</button>
+
+      <p class="callout">
+        Во прозорецот за печатење постави <b>Размер (Scale) = 100%</b> или
+        <b>Вистинска големина</b>. Ако остане на „Собери на страница / Fit to page“,
+        сликите нема да излезат во точната големина.
+      </p>
+
+      <button id="dlSheet" disabled>Зачувај ја страницата како слика</button>
+    </section>
+
+    <!-- напредно ─────────────────────────────── -->
+    <details class="block adv">
+      <summary>Повеќе поставки</summary>
+
+      <div class="advbody">
+        <div class="row dims">
+          <label><span>Од лево</span><input type="number" id="x" step="0.1"></label>
+          <label><span>Од горе</span><input type="number" id="y" step="0.1"></label>
+        </div>
+
+        <label class="row">
+          <span>Како да ја исполни големината</span>
+          <select id="fit">
+            <option value="contain" selected>Цела слика, со празнина околу</option>
+            <option value="cover">Пополнува сѐ, сече од рабовите</option>
+            <option value="stretch">Развлечи (сликата се искривува)</option>
+          </select>
+        </label>
+
+        <label class="row">
+          <span>Боја на празнината</span>
+          <span class="inline">
+            <input type="color" id="bg" value="#ffffff">
+            <label class="chk"><input type="checkbox" id="bgNone"> проѕирно</label>
+          </span>
+        </label>
+
+        <label class="row">
+          <span>Растојание меѓу сликите (мм)</span>
+          <input type="number" id="gap" min="0" step="1" value="4">
+        </label>
+
+        <label class="row">
+          <span>Квалитет на печатење</span>
+          <select id="dpi">
+            <option value="150">Послаб — најбрзо (150 DPI)</option>
+            <option value="300">Нормален — побрзо (300 DPI)</option>
+            <option value="600" selected>Најдобар (600 DPI)</option>
+          </select>
+        </label>
+
+        <label class="chk"><input type="checkbox" id="marks" checked> ознаки за сечење</label>
+        <label class="chk"><input type="checkbox" id="guides" checked> покажи го работ (само на екран)</label>
+
+        <div class="btnrow">
+          <button id="dlImg" type="button" disabled>Зачувај ја избраната слика</button>
+          <select id="format">
+            <option value="png" selected>PNG</option>
+            <option value="jpeg">JPEG</option>
+          </select>
+        </div>
+      </div>
+    </details>
+
+  </aside>
+
+  <!-- ─────────── страница ─────────── -->
+  <section class="stage">
+    <div class="stage-inner">
+      <canvas id="preview" class="paper"></canvas>
+      <p class="keys">
+        Влечи ја сликата за да ја поместиш · влечи го белото аголче за да ја смениш големината ·
+        <b>стрелки</b> ситно поместување · <b>Delete</b> бришење · <b>Ctrl+Z</b> враќање назад
+      </p>
+      <p id="warn" class="warn" hidden></p>
+    </div>
+  </section>
+
+</main>
+
+<!-- ова се печати; на екран е скриено -->
+<div id="printArea"><img id="printImg" alt=""></div>
+<style id="pageStyle">@page { size: A4 portrait; margin: 0; }</style>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Генератор на Етикети — F-19</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏷️</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script>
+// Fallback CDN if first one fails
+if (!window.jspdf) {
+  document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"><\/scr'+'ipt>');
+}
+</script>
+<style>
+:root {
+  --bg: #f5f3ef;
+  --card-bg: #ffffff;
+  --card-header: #fafaf8;
+  --border: #e5e1db;
+  --hover: #f0ede8;
+  --text-primary: #1a1815;
+  --text-secondary: #5c564d;
+  --text-muted: #9c958a;
+  --accent: #c05621;
+  --accent-hover: #a84b1c;
+  --accent-glow: rgba(192,86,33,0.12);
+  --accent-light: #fef3ec;
+  --green: #2d7a3a;
+  --green-bg: #ecfdf0;
+  --red: #dc2626;
+  --red-bg: #fee2e2;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'DM Sans', 'Helvetica Neue', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===================== HEADER ===================== */
+.header {
+  background: #1a1815;
+  padding: 28px 0 24px;
+  border-bottom: 3px solid var(--accent);
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    90deg, transparent, transparent 60px,
+    rgba(192,86,33,0.03) 60px, rgba(192,86,33,0.03) 61px
+  );
+  pointer-events: none;
+}
+.header-inner {
+  max-width: 1100px; margin: 0 auto; padding: 0 28px;
+  position: relative;
+}
+.header-top {
+  display: flex; align-items: flex-end; gap: 14px; margin-bottom: 6px;
+}
+.header h1 {
+  font-family: var(--font-display);
+  font-size: 26px; font-weight: 700;
+  color: #fff; letter-spacing: -0.02em; line-height: 1;
+}
+.header p {
+  font-size: 12px; color: #9c958a;
+  margin-left: 46px; letter-spacing: 0.03em;
+  font-family: var(--font-mono);
+}
+
+/* ===================== LAYOUT ===================== */
+.main {
+  max-width: 1100px; margin: 0 auto; padding: 28px;
+  display: grid; grid-template-columns: 1fr 340px;
+  gap: 28px; align-items: start;
+}
+@media (max-width: 860px) {
+  .main { grid-template-columns: 1fr; }
+  .sidebar { position: static !important; }
+}
+
+.section-title {
+  font-size: 15px; font-weight: 700; margin-bottom: 16px;
+  letter-spacing: -0.01em;
+}
+
+/* ===================== CARD ===================== */
+.decl-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px; overflow: hidden;
+  transition: box-shadow 0.2s, transform 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  margin-bottom: 16px;
+}
+.decl-card:hover {
+  box-shadow: 0 6px 24px rgba(0,0,0,0.07);
+  transform: translateY(-1px);
+}
+.decl-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card-header);
+}
+.decl-left { display: flex; align-items: center; gap: 10px; }
+.decl-badge {
+  background: var(--accent); color: #fff;
+  width: 26px; height: 26px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+.decl-name { font-size: 13px; font-weight: 600; }
+.decl-controls { display: flex; align-items: center; gap: 10px; }
+
+/* Stepper */
+.qty-stepper {
+  display: flex; align-items: center;
+  background: var(--bg); border-radius: 9px;
+  border: 1px solid var(--border); overflow: hidden;
+}
+.qty-stepper button {
+  width: 32px; height: 32px; border: none;
+  background: transparent; cursor: pointer;
+  font-size: 17px; color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); transition: background 0.1s;
+}
+.qty-stepper button:hover { background: var(--hover); }
+.qty-stepper input {
+  width: 50px; height: 32px; border: none;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: center; font-size: 13px; font-weight: 700;
+  font-family: var(--font-mono); color: var(--text-primary);
+  background: transparent; outline: none;
+  -moz-appearance: textfield;
+}
+.qty-stepper input::-webkit-outer-spin-button,
+.qty-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.qty-label {
+  font-size: 10px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  font-weight: 600; white-space: nowrap;
+}
+
+.btn-remove {
+  width: 30px; height: 30px; border: none;
+  background: transparent; cursor: pointer;
+  border-radius: 7px; display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); font-size: 15px; transition: all 0.15s;
+}
+.btn-remove:hover { background: var(--red-bg); color: var(--red); }
+
+/* Textarea */
+.decl-body { padding: 14px 18px 18px; }
+.decl-body textarea {
+  width: 100%; border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px;
+  font-size: 13px; font-family: var(--font-body);
+  line-height: 1.65; color: var(--text-primary);
+  background: var(--bg); resize: vertical;
+  outline: none; min-height: 110px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.decl-body textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.decl-body textarea::placeholder { color: var(--text-muted); }
+.decl-meta {
+  margin-top: 7px; font-size: 11px; color: var(--text-muted);
+  font-family: var(--font-mono); display: flex; gap: 14px;
+}
+
+/* Add button */
+.btn-add {
+  width: 100%; padding: 14px;
+  border: 2px dashed var(--border); border-radius: 14px;
+  background: transparent; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--text-muted);
+  font-family: var(--font-body);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all 0.2s;
+}
+.btn-add:hover {
+  border-color: var(--accent); color: var(--accent);
+  background: var(--accent-light);
+}
+
+/* ===================== SIDEBAR ===================== */
+.sidebar { position: sticky; top: 20px; }
+
+.stats-card {
+  background: var(--card-bg); border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px; margin-bottom: 14px;
+}
+.stats-heading {
+  font-size: 10px; font-weight: 700; color: var(--text-muted);
+  font-family: var(--font-mono); text-transform: uppercase;
+  letter-spacing: 0.08em; margin-bottom: 14px;
+}
+.stats-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-bottom: 14px;
+}
+.stat-box {
+  background: var(--bg); border-radius: 10px; padding: 14px;
+  text-align: center;
+}
+.stat-num {
+  font-size: 28px; font-weight: 700;
+  font-family: var(--font-mono); line-height: 1;
+}
+.stat-num.accent { color: var(--accent); }
+.stat-lbl {
+  font-size: 10px; color: var(--text-muted);
+  margin-top: 4px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+.bd-row {
+  display: flex; justify-content: space-between;
+  padding: 5px 0; font-size: 12px;
+}
+.bd-row + .bd-row { border-top: 1px solid var(--border); }
+.bd-name { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+.bd-qty { font-family: var(--font-mono); font-weight: 600; flex-shrink: 0; margin-left: 8px; }
+
+/* Actions */
+.actions { display: flex; flex-direction: column; gap: 10px; }
+.btn-gen {
+  width: 100%; padding: 15px; border: none; border-radius: 12px;
+  font-size: 14px; font-weight: 700; font-family: var(--font-body);
+  cursor: pointer; transition: all 0.2s; letter-spacing: -0.01em;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--accent); color: #fff;
+}
+.btn-gen:hover { background: var(--accent-hover); }
+.btn-gen:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; }
+.btn-gen:disabled:hover { background: var(--border); }
+
+.status {
+  padding: 11px 13px; border-radius: 10px;
+  font-size: 12px; line-height: 1.5; display: none;
+}
+.status.ok { background: var(--green-bg); color: var(--green); display: block; }
+.status.err { background: var(--red-bg); color: var(--red); display: block; }
+.status.wait { background: #eef2ff; color: #4338ca; display: block; }
+
+.progress {
+  width: 100%; height: 4px; background: var(--border);
+  border-radius: 2px; overflow: hidden; display: none; margin-top: 6px;
+}
+.progress.on { display: block; }
+.progress-fill {
+  height: 100%; background: var(--accent);
+  border-radius: 2px; width: 100%;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* ===================== PREVIEW ===================== */
+.preview-card {
+  background: var(--card-bg); border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px; margin-top: 14px;
+}
+.preview-scroll {
+  max-height: 460px; overflow-y: auto; padding-right: 4px;
+}
+.preview-page { margin-bottom: 16px; }
+.preview-page-label {
+  font-size: 10px; color: var(--text-muted);
+  font-family: var(--font-mono); margin-bottom: 5px;
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0; background: #fff;
+  border: 1px solid #ddd; border-radius: 5px;
+  overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+}
+.preview-label-canvas {
+  width: 100%;
+  aspect-ratio: 63.5 / 46.6;
+  display: block;
+  border: 0.5px solid #bbb;
+}
+.preview-empty {
+  aspect-ratio: 63.5 / 46.6;
+  border: 0.5px dashed #ddd;
+}
+
+/* ===================== TOAST ===================== */
+.toast-container {
+  position: fixed; bottom: 24px; right: 24px;
+  z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+  background: #1a1815; color: #fff; padding: 12px 20px;
+  border-radius: 10px; font-size: 13px; font-family: var(--font-body);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  animation: toastIn 0.3s ease-out;
+  display: flex; align-items: center; gap: 8px;
+}
+.toast.success { border-left: 3px solid var(--green); }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Canvas (hidden, used for PDF rendering) */
+#pdf-canvas { display: none; }
+</style>
+</head>
+<body>
+
+<!-- враќање на почетната страница -->
+<a class="paci-nazad" href="../index.html">← Назад</a>
+<style>
+.paci-nazad{
+  position:fixed; top:14px; left:14px; z-index:99999;
+  background:#fff; color:#1a1815; border:2px solid var(--accent);
+  border-radius:8px; padding:9px 18px;
+  font:600 17px/1 var(--font-body);
+  text-decoration:none; box-shadow:0 2px 8px rgba(0,0,0,.15);
+}
+.paci-nazad:hover,.paci-nazad:focus{background:var(--accent);color:#fff;outline:none}
+body{padding-top:70px !important}
+@media print{ .paci-nazad{display:none !important} body{padding-top:0 !important} }
+</style>
+
+<canvas id="pdf-canvas"></canvas>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-inner">
+    <div class="header-top">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#c05621" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="18" rx="2"/>
+        <path d="M8 7h8M8 11h8M8 15h4"/>
+      </svg>
+      <h1>Генератор на Етикети</h1>
+    </div>
+    <p>F-19 · 63.5 × 46.6 mm · 18 етикети / А4</p>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <!-- Left -->
+  <div>
+    <div class="section-title">Декларации</div>
+    <div id="decl-list"></div>
+    <button class="btn-add" onclick="addDecl()">
+      <span style="font-size:18px;line-height:1;">+</span>
+      Додади Декларација
+    </button>
+  </div>
+
+  <!-- Right -->
+  <div class="sidebar">
+    <div class="stats-card">
+      <div class="stats-heading">Преглед</div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-num accent" id="s-labels">0</div>
+          <div class="stat-lbl">Етикети</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="s-pages">0</div>
+          <div class="stat-lbl">Страници</div>
+        </div>
+      </div>
+      <div id="breakdown"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-gen" id="btn-gen" onclick="generatePDF()" disabled>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span id="btn-gen-text">Генерирај PDF</span>
+      </button>
+      <div class="progress" id="prog"><div class="progress-fill"></div></div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <!-- Preview -->
+    <div class="preview-card" id="preview-card" style="display:none;">
+      <div class="stats-heading">Преглед на етикети</div>
+      <div class="preview-scroll" id="preview-scroll"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+// ======================================================
+// STATE
+// ======================================================
+let decls = [{ text: '', qty: 18 }];
+
+// ======================================================
+// PDF CONSTANTS (A4 in mm)
+// ======================================================
+const A4_W_MM = 210, A4_H_MM = 297;
+const LBL_W_MM = 63.5, LBL_H_MM = 46.6;
+const COLS = 3, ROWS = 6, PER_PAGE = 18;
+
+// Match Python exactly: 300 DPI rendering
+const PDF_DPI = 300;
+function mmToPx(mm) { return Math.round(mm / 25.4 * PDF_DPI); }
+
+const PAGE_W = 2480, PAGE_H = 3508;  // A4 @ 300 DPI
+const BLOCK_W = mmToPx(LBL_W_MM);    // ~750 px
+const BLOCK_H = mmToPx(LBL_H_MM);    // ~550 px
+const GRID_W = COLS * BLOCK_W;
+const GRID_H = ROWS * BLOCK_H;
+const START_X = Math.floor((PAGE_W - GRID_W) / 2);
+const START_Y = Math.floor((PAGE_H - GRID_H) / 2);
+
+// Padding scaled to 300 DPI (~ 3mm horizontal, 2.5mm vertical)
+const TEXT_PAD_X = mmToPx(3);    // ~35 px at 300dpi
+const TEXT_PAD_Y = mmToPx(2.5);  // ~30 px at 300dpi
+const BORDER_W = 2;              // px
+const FONT_START = 42;           // px — start large
+const FONT_MIN = 10;             // px — allow small text for dense content
+const SPACING_START = 4;         // px — more line spacing range
+
+// ======================================================
+// RENDER UI
+// ======================================================
+function render() {
+  renderCards();
+  updateStats();
+  renderPreview();
+}
+
+function renderCards() {
+  const el = document.getElementById('decl-list');
+  el.innerHTML = '';
+  decls.forEach((d, i) => {
+    const rm = decls.length > 1
+      ? `<button class="btn-remove" onclick="removeDecl(${i})" title="Отстрани">✕</button>` : '';
+    const lines = d.text ? d.text.split('\n').filter(l => l.trim()).length : 0;
+    const chars = d.text ? d.text.length : 0;
+    const meta = d.text ? `<span>${lines} линии</span><span>${chars} знаци</span>` : '';
+
+    el.innerHTML += `
+      <div class="decl-card">
+        <div class="decl-header">
+          <div class="decl-left">
+            <span class="decl-badge">${i+1}</span>
+            <span class="decl-name">Декларација ${i+1}</span>
+          </div>
+          <div class="decl-controls">
+            <div class="qty-stepper">
+              <button onclick="chgQty(${i},-1)">−</button>
+              <input type="number" min="0" value="${d.qty}" onchange="setQty(${i},this.value)" id="q${i}">
+              <button onclick="chgQty(${i},1)">+</button>
+            </div>
+            <span class="qty-label">етикети</span>
+            ${rm}
+          </div>
+        </div>
+        <div class="decl-body">
+          <textarea placeholder="Внесете ја декларацијата овде..." rows="5"
+            oninput="updText(${i},this.value)" id="t${i}">${d.text}</textarea>
+          <div class="decl-meta" id="m${i}">${meta}</div>
+        </div>
+      </div>`;
+  });
+}
+
+let _previewTimer = null;
+function debouncedPreview() {
+  clearTimeout(_previewTimer);
+  _previewTimer = setTimeout(renderPreview, 250);
+}
+
+function updText(i, v) {
+  decls[i].text = v;
+  const m = document.getElementById('m'+i);
+  if (v) {
+    const l = v.split('\n').filter(x=>x.trim()).length;
+    m.innerHTML = `<span>${l} линии</span><span>${v.length} знаци</span>`;
+  } else m.innerHTML = '';
+  updateStats();
+  debouncedPreview();
+}
+
+function chgQty(i, d) {
+  decls[i].qty = Math.max(0, decls[i].qty + d);
+  document.getElementById('q'+i).value = decls[i].qty;
+  updateStats();
+  renderPreview();
+}
+
+function setQty(i, v) {
+  decls[i].qty = Math.max(0, parseInt(v)||0);
+  updateStats();
+  renderPreview();
+}
+
+function addDecl() {
+  decls.push({ text: '', qty: 18 });
+  render();
+  setTimeout(() => {
+    const ta = document.getElementById('t'+(decls.length-1));
+    if (ta) ta.focus();
+  }, 60);
+}
+
+function removeDecl(i) {
+  decls.splice(i, 1);
+  render();
+}
+
+function getActive() { return decls.filter(d => d.text.trim() && d.qty > 0); }
+
+function updateStats() {
+  const active = getActive();
+  const total = active.reduce((s,d) => s + d.qty, 0);
+  const pages = Math.ceil(total / PER_PAGE) || 0;
+  document.getElementById('s-labels').textContent = total;
+  document.getElementById('s-pages').textContent = pages;
+  document.getElementById('btn-gen').disabled = total === 0;
+
+  const bd = document.getElementById('breakdown');
+  if (active.length) {
+    bd.innerHTML = active.map(d => {
+      const first = d.text.split('\n')[0] || '';
+      const short = first.length > 28 ? first.substring(0,25)+'…' : first;
+      return `<div class="bd-row"><span class="bd-name">${short}</span><span class="bd-qty">×${d.qty}</span></div>`;
+    }).join('');
+  } else bd.innerHTML = '';
+}
+
+// ======================================================
+// PREVIEW
+// ======================================================
+// Preview renders at 1/4 of PDF resolution for speed
+const PREVIEW_SCALE = 0.25;
+const PREV_W = Math.round(BLOCK_W * PREVIEW_SCALE);
+const PREV_H = Math.round(BLOCK_H * PREVIEW_SCALE);
+
+function renderPreview() {
+  const active = getActive();
+  const allLabels = [];
+  active.forEach(d => { for(let i=0;i<d.qty;i++) allLabels.push(d.text); });
+
+  const card = document.getElementById('preview-card');
+  const scroll = document.getElementById('preview-scroll');
+
+  if (!allLabels.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  // Render each unique text once on an offscreen canvas, cache as dataURL
+  const cache = {};
+  const offscreen = document.createElement('canvas');
+  offscreen.width = BLOCK_W;
+  offscreen.height = BLOCK_H;
+  const offCtx = offscreen.getContext('2d');
+  offCtx.textBaseline = 'top';
+
+  const uniqueTexts = [...new Set(allLabels)];
+  for (const text of uniqueTexts) {
+    offCtx.fillStyle = '#fff';
+    offCtx.fillRect(0, 0, BLOCK_W, BLOCK_H);
+    drawLabel(offCtx, 0, 0, BLOCK_W, BLOCK_H, text);
+    cache[text] = offscreen.toDataURL('image/png');
+  }
+
+  const pages = [];
+  for (let i = 0; i < allLabels.length; i += PER_PAGE)
+    pages.push(allLabels.slice(i, i + PER_PAGE));
+
+  let html = '';
+  pages.forEach((pg, pi) => {
+    let cells = '';
+    for (let i = 0; i < PER_PAGE; i++) {
+      if (i < pg.length) {
+        cells += `<img class="preview-label-canvas" src="${cache[pg[i]]}" loading="lazy">`;
+      } else {
+        cells += `<div class="preview-empty"></div>`;
+      }
+    }
+    html += `<div class="preview-page">
+      <div class="preview-page-label">Страница ${pi+1}</div>
+      <div class="preview-grid">${cells}</div>
+    </div>`;
+  });
+  scroll.innerHTML = html;
+}
+
+// ======================================================
+// PDF GENERATION — matches Python paci.py exactly
+// Canvas renders at 300 DPI (2480×3508), same as Pillow
+// ======================================================
+const FONT_FACE = '"DM Sans", "Noto Sans", "DejaVu Sans", "Helvetica", "Arial", sans-serif';
+
+function getLineHeight(ctx, font) {
+  ctx.font = font;
+  const m = ctx.measureText('Ag');
+  // Use actualBoundingBox for accurate height, fallback to approximation
+  if (m.actualBoundingBoxAscent !== undefined) {
+    return m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+  }
+  // Fallback: extract size from font string
+  const sz = parseFloat(font);
+  return sz * 1.15;
+}
+
+function wrapParagraph(ctx, paragraph, font, maxWidth) {
+  ctx.font = font;
+  const words = paragraph.split(/\s+/);
+  if (!words.length || (words.length === 1 && !words[0])) return [''];
+
+  // Helper: break a single long word into chunks that fit maxWidth
+  function breakWord(word) {
+    const chunks = [];
+    let current = '';
+    for (let c = 0; c < word.length; c++) {
+      const test = current + word[c];
+      if (ctx.measureText(test).width > maxWidth && current) {
+        chunks.push(current);
+        current = word[c];
+      } else {
+        current = test;
+      }
+    }
+    if (current) chunks.push(current);
+    return chunks;
+  }
+
+  const lines = [];
+  let current = '';
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    // If this single word is wider than maxWidth, break it by character
+    if (ctx.measureText(word).width > maxWidth) {
+      if (current) { lines.push(current); current = ''; }
+      const broken = breakWord(word);
+      for (let b = 0; b < broken.length - 1; b++) lines.push(broken[b]);
+      current = broken[broken.length - 1] || '';
+      continue;
+    }
+
+    if (!current) {
+      current = word;
+    } else {
+      const test = current + ' ' + word;
+      if (ctx.measureText(test).width <= maxWidth) {
+        current = test;
+      } else {
+        lines.push(current);
+        current = word;
+      }
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+function wrapText(ctx, text, font, maxWidth) {
+  const paragraphs = text.split('\n');
+  const wrapped = [];
+  paragraphs.forEach(para => {
+    if (!para.trim()) {
+      wrapped.push('');
+    } else {
+      wrapped.push(...wrapParagraph(ctx, para, font, maxWidth));
+    }
+  });
+  return wrapped;
+}
+
+function measureTextBlock(ctx, lines, font, spacing) {
+  if (!lines.length) return 0;
+  const lh = getLineHeight(ctx, font);
+  return lines.length * lh + (lines.length - 1) * spacing;
+}
+
+function fitText(ctx, text, maxWidth, maxHeight) {
+  // Coarse pass: step by 4px to find approximate range
+  let bestSize = FONT_MIN;
+  for (let fontSize = FONT_START; fontSize >= FONT_MIN; fontSize -= 4) {
+    const font = `${fontSize}px ${FONT_FACE}`;
+    const lines = wrapText(ctx, text, font, maxWidth);
+    const totalH = measureTextBlock(ctx, lines, font, 0);
+    if (totalH <= maxHeight) { bestSize = fontSize; break; }
+  }
+
+  // Fine pass: check from bestSize+3 down to bestSize to find exact fit with spacing
+  const fineStart = Math.min(bestSize + 3, FONT_START);
+  for (let fontSize = fineStart; fontSize >= FONT_MIN; fontSize--) {
+    const font = `${fontSize}px ${FONT_FACE}`;
+    for (let spacing = SPACING_START; spacing >= 0; spacing--) {
+      const lines = wrapText(ctx, text, font, maxWidth);
+      const totalH = measureTextBlock(ctx, lines, font, spacing);
+      if (totalH <= maxHeight) {
+        return { font, lines, spacing, fontSize };
+      }
+    }
+  }
+
+  // Fallback: smallest font, truncate lines that don't fit
+  const font = `${FONT_MIN}px ${FONT_FACE}`;
+  const lines = wrapText(ctx, text, font, maxWidth);
+  const lh = getLineHeight(ctx, font);
+  const fitted = [];
+  let usedH = 0;
+  for (const line of lines) {
+    if (usedH + lh <= maxHeight) {
+      fitted.push(line);
+      usedH += lh;
+    } else break;
+  }
+  return { font, lines: fitted, spacing: 0, fontSize: FONT_MIN };
+}
+
+function drawLabel(ctx, x, y, w, h, text) {
+  // Border (same as Python SHOW_BORDER)
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = BORDER_W;
+  ctx.strokeRect(x, y, w, h);
+
+  // Inner area with padding (same as Python)
+  const innerX = x + TEXT_PAD_X;
+  const innerY = y + TEXT_PAD_Y;
+  const innerW = w - TEXT_PAD_X * 2;
+  const innerH = h - TEXT_PAD_Y * 2;
+
+  const { font, lines, spacing } = fitText(ctx, text, innerW, innerH);
+  ctx.font = font;
+  ctx.fillStyle = '#000';
+  const lh = getLineHeight(ctx, font);
+
+  let cy = innerY;
+  for (const line of lines) {
+    // Canvas textBaseline = 'top' so we draw at cy directly
+    ctx.fillText(line, innerX, cy);
+    cy += lh + spacing;
+  }
+}
+
+async function generatePDF() {
+  const active = getActive();
+  if (!active.length) return;
+
+  const btn = document.getElementById('btn-gen');
+  const btnText = document.getElementById('btn-gen-text');
+  const status = document.getElementById('status');
+  const prog = document.getElementById('prog');
+
+  btn.disabled = true;
+  btnText.textContent = 'Се генерира...';
+  status.className = 'status wait';
+  status.textContent = '⏳ Се генерираат етикетите...';
+  prog.className = 'progress on';
+
+  await new Promise(r => setTimeout(r, 50));
+
+  try {
+    const allLabels = [];
+    active.forEach(d => { for(let i=0;i<d.qty;i++) allLabels.push(d.text); });
+
+    const totalPages = Math.ceil(allLabels.length / PER_PAGE);
+
+    const canvas = document.getElementById('pdf-canvas');
+    canvas.width = PAGE_W;
+    canvas.height = PAGE_H;
+    const ctx = canvas.getContext('2d');
+    ctx.textBaseline = 'top';
+
+    const jsPDFLib = window.jspdf;
+    if (!jsPDFLib || !jsPDFLib.jsPDF) {
+      throw new Error('jsPDF библиотеката не е вчитана. Проверете ја интернет конекцијата и обновете ја страницата.');
+    }
+    const { jsPDF } = jsPDFLib;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    for (let p = 0; p < totalPages; p++) {
+      if (p > 0) pdf.addPage();
+
+      // White background
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, PAGE_W, PAGE_H);
+
+      const start = p * PER_PAGE;
+      const end = Math.min(start + PER_PAGE, allLabels.length);
+
+      for (let idx = start; idx < end; idx++) {
+        const li = idx - start;
+        const row = Math.floor(li / COLS);
+        const col = li % COLS;
+
+        const lx = START_X + col * BLOCK_W;
+        const ly = START_Y + row * BLOCK_H;
+
+        drawLabel(ctx, lx, ly, BLOCK_W, BLOCK_H, allLabels[idx]);
+      }
+
+      // Canvas → JPEG → PDF page
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      pdf.addImage(imgData, 'JPEG', 0, 0, A4_W_MM, A4_H_MM);
+
+      if (totalPages > 1) {
+        status.textContent = `⏳ Страница ${p+1} од ${totalPages}...`;
+        await new Promise(r => setTimeout(r, 20));
+      }
+    }
+
+    pdf.save('етикети.pdf');
+
+    const total = allLabels.length;
+    status.className = 'status ok';
+    status.textContent = `✓ PDF е генериран! ${total} етикети на ${totalPages} ${totalPages===1?'страница':'страници'}.`;
+
+    showToast(`✓ ${total} етикети генерирани`);
+
+  } catch(err) {
+    status.className = 'status err';
+    status.textContent = '✕ Грешка: ' + err.message;
+    console.error(err);
+  } finally {
+    btn.disabled = getActive().length === 0;
+    btnText.textContent = 'Генерирај PDF';
+    prog.className = 'progress';
+  }
+}
+
+// ======================================================
+// TOAST
+// ======================================================
+function showToast(msg) {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = 'toast success';
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; }, 2500);
+  setTimeout(() => t.remove(), 2900);
+}
+
+// ======================================================
+// INIT
+// ======================================================
+render();
+</script>
+
+</body>
+</html>
