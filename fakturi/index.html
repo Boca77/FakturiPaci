@@ -669,6 +669,13 @@
         <div class="row card-panel">
             <div class="d-flex gap-3 details-row">
                 <div class="w-33">
+                    <label for="company-select">Фирма</label>
+                    <select class="form-select" id="company-select">
+                        <option value="danipa">ДТУ ДАНИ–ПА ПЛАНТЕЛА ДООЕЛ</option>
+                        <option value="ampela">ДТУ АМПЕЛА-АЛПА ДООЕЛ</option>
+                    </select>
+                </div>
+                <div class="w-33">
                     <label for="invoice-no">Број на фактура</label>
                     <input type="text" autocomplete="off" class="form-control" id="invoice-no-input">
                 </div>
@@ -715,11 +722,11 @@
         <div class="invoice mx-auto d-none">
             <div class="header">
                 <div class="header-left">
-                    <h1>ДТУ ДАНИ–ПА ПЛАНТЕЛА ДООЕЛ</h1>
+                    <h1 id="company-name">ДТУ ДАНИ–ПА ПЛАНТЕЛА ДООЕЛ</h1>
                     <div class="city">Скопје</div>
                 </div>
-                <div class="header-right">
-                    Ул Шишман Ангеловски 5 1000<br>
+                <div class="header-right" id="company-details">
+                    Ул Шишман Ангеловски бр 5 1000<br>
                     Скопје-Аеродром<br>
                     + 389 (0)71 338 227<br>
                     Депонент. Комерцијална Банка<br>
@@ -1437,6 +1444,52 @@
             });
 
             // ============================================
+            // ФИРМА (издавач на фактурата)
+            // ============================================
+            const COMPANIES = {
+                danipa: {
+                    name: 'ДТУ ДАНИ–ПА ПЛАНТЕЛА ДООЕЛ',
+                    details: [
+                        'Ул Шишман Ангеловски бр 5 1000',
+                        'Скопје-Аеродром',
+                        '+ 389 (0)71 338 227',
+                        'Депонент. Комерцијална Банка',
+                        'Ж. С-ка: 300 0000050150 33',
+                        'ЕДБ:4032023558550'
+                    ]
+                },
+                ampela: {
+                    name: 'ДТУ АМПЕЛА-АЛПА ДООЕЛ',
+                    details: [
+                        'Ул Шишман Ангеловски бр 5 1000',
+                        'Скопје-Аеродром',
+                        '+ 389 (0)71 338 227',
+                        'Депонент. Комерцијална Банка',
+                        'Ж. С-ка: 300 0000055248 65',
+                        'ЕДБ:4032026572987'
+                    ]
+                }
+            };
+
+            function applyCompany(key) {
+                let company = COMPANIES[key] || COMPANIES.danipa;
+                $('#company-name').text(company.name);
+                $('#company-details').html(company.details.map(line => $('<div>').text(line).html()).join('<br>'));
+            }
+
+            let savedCompany = null;
+            try { savedCompany = localStorage.getItem('fakturi-company'); } catch (e) {}
+            if (savedCompany && COMPANIES[savedCompany]) {
+                $('#company-select').val(savedCompany);
+            }
+            applyCompany($('#company-select').val());
+
+            $('#company-select').on('change', function() {
+                applyCompany($(this).val());
+                try { localStorage.setItem('fakturi-company', $(this).val()); } catch (e) {}
+            });
+
+            // ============================================
             // КРЕИРАЈ ФАКТУРА + ЗАЧУВАЈ ВО FIREBASE
             // ============================================
             $('#create').on('click', function() {
@@ -1485,6 +1538,7 @@
 
                 // Зачувај фактура во Firebase
                 db.collection('invoices').add({
+                    company: $('#company-select').val(),
                     invoiceNo: $('#invoice-no-input').val(),
                     client: $('#komintent-input').val(),
                     address: $('#adress-input').val(),
