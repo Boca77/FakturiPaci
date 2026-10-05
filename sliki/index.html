@@ -54,6 +54,8 @@
       </p>
 
       <div id="selCtl" class="off">
+        <button id="edit" type="button">Уреди ја сликата — облик, сечење, позадина</button>
+
         <label class="row">
           <span>Мерка</span>
           <select id="unit">
@@ -180,9 +182,13 @@
   <!-- ─────────── страница ─────────── -->
   <section class="stage">
     <div class="stage-inner">
-      <canvas id="preview" class="paper"></canvas>
+      <div class="paper-wrap">
+        <canvas id="preview" class="paper"></canvas>
+        <button id="editFab" class="fab" type="button" hidden>Уреди ја сликата</button>
+      </div>
       <p class="keys">
-        Влечи ја сликата за да ја поместиш · влечи го белото аголче за да ја смениш големината ·
+        <b>Кликни уште еднаш на избраната слика за да ја уредиш</b> ·
+        влечи ја сликата за да ја поместиш · влечи го белото аголче за да ја смениш големината ·
         <b>стрелки</b> ситно поместување · <b>Delete</b> бришење · <b>Ctrl+Z</b> враќање назад
       </p>
       <p id="warn" class="warn" hidden></p>
@@ -190,6 +196,107 @@
   </section>
 
 </main>
+
+<!-- ─────────── уредување на една слика (цел екран) ─────────── -->
+<dialog id="editor" class="editor" aria-labelledby="edTitle">
+  <div id="edStage" class="ed-stage">
+    <canvas id="edView" class="ed-view"></canvas>
+  </div>
+
+  <div class="ed-side">
+    <div class="ed-tools">
+      <h2 id="edTitle">Уреди ја сликата</h2>
+
+      <section class="ed-group">
+        <h3>Облик и сечење</h3>
+        <p class="hint">Избери облик, па влечи ги белите агли врз сликата. Останува само она што е во светлиот дел.</p>
+        <!-- копчињата ги прави app.js од листата SHAPES -->
+        <div id="edShapes" class="ed-shapes"></div>
+      </section>
+
+      <section class="ed-group">
+        <h3>Позадина</h3>
+        <button id="edBg" type="button" aria-pressed="false">Тргни ја позадината</button>
+        <div id="edBgCtl" class="ed-slide" hidden>
+          <label for="edT">Колку да се тргне</label>
+          <button type="button" data-for="edT" data-d="-5">Помалку</button>
+          <input type="range" id="edT" min="5" max="100" value="30">
+          <button type="button" data-for="edT" data-d="5">Повеќе</button>
+        </div>
+        <p class="hint">Најдобро работи кога позадината е рамна и во една боја (ѕид, хартија). На хартија тргнатиот дел излегува бел.</p>
+      </section>
+
+      <section class="ed-group">
+        <h3>Боја врз сликата</h3>
+        <!-- копчињата ги прави app.js од листата TINTS -->
+        <div id="edTints" class="ed-tints"></div>
+        <div id="edTintCtl" class="ed-slide" hidden>
+          <label for="edTA">Колку јака да е бојата</label>
+          <button type="button" data-for="edTA" data-d="-10">Посветла</button>
+          <input type="range" id="edTA" min="10" max="100" value="50">
+          <button type="button" data-for="edTA" data-d="10">Потемна</button>
+        </div>
+      </section>
+
+      <section class="ed-group">
+        <h3>Четка</h3>
+        <button id="edBrush" type="button" aria-pressed="false">Цртај врз сликата</button>
+        <div id="edBrushCtl" hidden>
+          <p class="hint">Притисни и влечи врз сликата за да црташ. Додека цртањето е вклучено, рамката за сечење не се мрда.</p>
+          <div id="edBrushShapes" class="ed-shapes"></div>
+          <div id="edBrushColors" class="ed-tints"></div>
+          <div class="ed-slide">
+            <label for="edBS">Големина на четката</label>
+            <button type="button" data-for="edBS" data-d="-10">Помала</button>
+            <input type="range" id="edBS" min="1" max="100" value="25">
+            <button type="button" data-for="edBS" data-d="10">Поголема</button>
+          </div>
+          <button id="edBrushUndo" type="button">Избриши го последното цртање</button>
+        </div>
+      </section>
+
+      <section class="ed-group">
+        <h3>Сврти</h3>
+        <div class="btnrow">
+          <button id="edLeft" type="button">↺ Налево</button>
+          <button id="edRight" type="button">↻ Надесно</button>
+        </div>
+        <button id="edFlip" type="button">⇆ Огледало</button>
+      </section>
+
+      <section class="ed-group">
+        <h3>Светлина и боја</h3>
+        <button id="edAuto" type="button">Поправи автоматски</button>
+
+        <div class="ed-slide">
+          <label for="edB">Светлина</label>
+          <button type="button" data-for="edB" data-d="-10">Потемно</button>
+          <input type="range" id="edB" min="-100" max="100" value="0">
+          <button type="button" data-for="edB" data-d="10">Посветло</button>
+        </div>
+        <div class="ed-slide">
+          <label for="edC">Острина на боите (контраст)</label>
+          <button type="button" data-for="edC" data-d="-10">Помеко</button>
+          <input type="range" id="edC" min="-100" max="100" value="0">
+          <button type="button" data-for="edC" data-d="10">Појако</button>
+        </div>
+        <div class="ed-slide">
+          <label for="edS">Боја</label>
+          <button type="button" data-for="edS" data-d="-100">Црно-бело</button>
+          <input type="range" id="edS" min="-100" max="100" value="0">
+          <button type="button" data-for="edS" data-d="10">Пошарено</button>
+        </div>
+      </section>
+
+      <button id="edReset" type="button" class="ghost">Врати ја како што беше на почеток</button>
+    </div>
+
+    <div class="ed-foot">
+      <button id="edCancel" type="button">Откажи</button>
+      <button id="edDone" type="button" class="primary">Готово</button>
+    </div>
+  </div>
+</dialog>
 
 <!-- ова се печати; на екран е скриено -->
 <div id="printArea"><img id="printImg" alt=""></div>

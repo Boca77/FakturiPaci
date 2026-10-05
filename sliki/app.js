@@ -92,9 +92,13 @@ async function addFiles(files) {
     } catch {
       bitmap = await createImageBitmap(file);
     }
+    const id = ++uid;
     const it = {
-      id: ++uid,
+      id,
+      src: id,                    // shared by every copy of this photo
       name: (file.name || 'слика').replace(/\.[^.]+$/, ''),
+      orig: bitmap,               // untouched, so the editor can always start over
+      edit: null,                 // what the editor did to it, see openEditor
       bitmap,
       natW: bitmap.width,
       natH: bitmap.height,
@@ -262,8 +266,20 @@ function render() {
   drawSnapLines(ctx, k, S);
   const sel = selected();
   if (sel) drawSelection(ctx, sel, k);
+  placeFab(sel, k, S);
 
   updateInfo();
+}
+
+/** Parks the "edit" button under the selected photo, or inside it at the page bottom. */
+function placeFab(it, k, S) {
+  const fab = $('editFab');
+  fab.hidden = !it || !!drag;
+  if (fab.hidden) return;
+  const below = (it.y + it.h) * k + 12;
+  const fits = below + 50 <= S.h * k;
+  fab.style.top = (fits ? below : (it.y + it.h) * k - 62) + 'px';
+  fab.style.left = clamp((it.x + it.w / 2) * k, 95, Math.max(95, S.w * k - 95)) + 'px';
 }
 
 function drawMarginGuide(ctx, k, S) {
@@ -365,8 +381,9 @@ view.addEventListener('pointerdown', e => {
     const hit = itemAt(mx, my);
     if (!hit) { doc.sel = null; drag = null; syncPanel(); renderList(); render(); return; }
     snapshot();
+    drag = { mode: 'move', id: hit.id, dx: mx - hit.x, dy: my - hit.y,
+             sx: e.clientX, sy: e.clientY, moved: false, wasSel: doc.sel === hit.id };
     doc.sel = hit.id;
-    drag = { mode: 'move', id: hit.id, dx: mx - hit.x, dy: my - hit.y };
     syncPanel(); renderList();
   }
   capture(view, e.pointerId);
@@ -388,6 +405,11 @@ view.addEventListener('pointermove', e => {
   const S = sheetSize();
 
   if (drag.mode === 'move') {
+    // a shaky click must stay a click: it is how the editor is opened
+    if (!drag.moved) {
+      if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+      drag.moved = true;
+    }
     let nx = mx - drag.dx, ny = my - drag.dy;
     if (!e.altKey) ({ nx, ny } = snapMove(it, nx, ny, k)); else snapLines = { x: [], y: [] };
     it.x = clamp(nx, 0, S.w - it.w);
@@ -402,10 +424,14 @@ view.addEventListener('pointermove', e => {
 
 function endDrag(e) {
   if (!drag) return;
+  const click = drag.mode === 'move' && !drag.moved;
+  const edit = click && drag.wasSel && e && e.type === 'pointerup';
+  if (click) history.pop();                      // nothing moved, nothing to undo
   drag = null;
   snapLines = { x: [], y: [] };
   if (e) release(view, e.pointerId);
   render();
+  if (edit) openEditor(selected());              // second click on a photo edits it
 }
 view.addEventListener('pointerup', endDrag);
 view.addEventListener('pointercancel', endDrag);
@@ -514,8 +540,8 @@ listEl.addEventListener('pointerdown', e => {
   const li = e.target.closest('.thumb');
   if (!li) return;
   const id = +li.dataset.id;
+  reorder = { id, moved: false, startX: e.clientX, startY: e.clientY, wasSel: doc.sel === id };
   doc.sel = id;
-  reorder = { id, moved: false, startX: e.clientX, startY: e.clientY };
   capture(listEl, e.pointerId);
   syncPanel();
   renderList();
@@ -555,9 +581,11 @@ function insertionIndex(cx, cy, from) {
 
 function endReorder(e) {
   if (!reorder) return;
+  const edit = !reorder.moved && reorder.wasSel && e && e.type === 'pointerup';
   reorder = null;
   if (e) release(listEl, e.pointerId);
   renderList();
+  if (edit) openEditor(selected());
 }
 listEl.addEventListener('pointerup', endReorder);
 listEl.addEventListener('pointercancel', endReorder);
@@ -820,6 +848,748 @@ async function busy(btn, fn) {
   }
 }
 
+/* ───────────────────── editing one photo ───────────────────── */
+
+/* The editor never touches it.orig. It keeps a recipe (turn, mirror, crop, light)
+   and on "done" bakes orig + recipe into a new it.bitmap, so reopening a photo
+   shows the whole original with the old crop frame still adjustable. */
+
+const edView = $('edView');
+const PREVIEW_PX = 2e6;           // editor works on a small copy, so sliders stay instant
+const BAKE_PX = 24e6;             // cap for the saved result; plenty for A4 at 600 DPI
+const ED_GRAB = 30;               // grab distance for the crop frame, in screen pixels
+const ED_MIN = 0.08;              // smallest crop, as a share of the photo
+
+let ed = null;
+let edDrag = null;
+
+/** src turned by quarter turns and optionally mirrored, shrunk to at most maxPx pixels. */
+function oriented(src, rot, flip, maxPx) {
+  const sc = Math.min(1, Math.sqrt(maxPx / (src.width * src.height)));
+  const sw = Math.max(1, Math.round(src.width * sc));
+  const sh = Math.max(1, Math.round(src.height * sc));
+  const c = document.createElement('canvas');
+  c.width = rot % 2 ? sh : sw;
+  c.height = rot % 2 ? sw : sh;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.imageSmoothingQuality = 'high';
+  x.translate(c.width / 2, c.height / 2);
+  if (flip) x.scale(-1, 1);
+  x.rotate(rot * Math.PI / 2);
+  x.drawImage(src, -sw / 2, -sh / 2, sw, sh);
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  return c;
+}
+
+/* shapes: r is a fixed width,height shape; mm also sets the printed size */
+const SHAPES = [
+  { k: 'rect',    name: 'Правоаголник',    shape: 'rect',    r: '' },
+  { k: 'square',  name: 'Квадрат',         shape: 'rect',    r: '1,1' },
+  { k: 'round',   name: 'Заоблен',         shape: 'round',   r: '' },
+  { k: 'circle',  name: 'Круг',            shape: 'oval',    r: '1,1' },
+  { k: 'oval',    name: 'Овал',            shape: 'oval',    r: '' },
+  { k: 'star',    name: 'Ѕвезда',          shape: 'star',    r: '1,1' },
+  { k: 'heart',   name: 'Срце',            shape: 'heart',   r: '1,1' },
+  { k: 'diamond', name: 'Ромб',            shape: 'diamond', r: '' },
+  { k: 'pass',    name: 'Пасошка 35 × 45', shape: 'rect',    r: '35,45', mm: true },
+];
+const shapeOf = k => SHAPES.find(s => s.k === k) || SHAPES[0];
+
+// five-pointed star, stretched so its points touch all four sides of the box
+const STAR = (() => {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.42 : 1;
+    pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const w = Math.max(...xs) - x0, h = Math.max(...ys) - y0;
+  return pts.map(([x, y]) => [(x - x0) / w, (y - y0) / h]);
+})();
+
+/** Adds the outline of a shape filling the given box to the current path. */
+function shapePath(ctx, shape, x, y, w, h) {
+  const X = u => x + u * w, Y = v => y + v * h;
+  switch (shape) {
+    case 'oval':
+      ctx.moveTo(x + w, y + h / 2);
+      ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+      break;
+    case 'round': {
+      const r = Math.min(w, h) * 0.2;
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      break;
+    }
+    case 'diamond':
+      ctx.moveTo(X(0.5), y); ctx.lineTo(x + w, Y(0.5)); ctx.lineTo(X(0.5), y + h); ctx.lineTo(x, Y(0.5));
+      break;
+    case 'star':
+      STAR.forEach(([u, v], i) => ctx[i ? 'lineTo' : 'moveTo'](X(u), Y(v)));
+      break;
+    case 'heart':
+      ctx.moveTo(X(0.5), Y(1));
+      ctx.bezierCurveTo(X(0.2), Y(0.8), X(0), Y(0.55), X(0), Y(0.3));
+      ctx.bezierCurveTo(X(0), Y(0.12), X(0.13), Y(0), X(0.28), Y(0));
+      ctx.bezierCurveTo(X(0.38), Y(0), X(0.46), Y(0.06), X(0.5), Y(0.16));
+      ctx.bezierCurveTo(X(0.54), Y(0.06), X(0.62), Y(0), X(0.72), Y(0));
+      ctx.bezierCurveTo(X(0.87), Y(0), X(1), Y(0.12), X(1), Y(0.3));
+      ctx.bezierCurveTo(X(1), Y(0.55), X(0.8), Y(0.8), X(0.5), Y(1));
+      break;
+    default:
+      ctx.rect(x, y, w, h);
+      return;
+  }
+  ctx.closePath();
+}
+
+/** Finds the background by spreading inwards from the edges of the picture over
+    everything that looks like the most common edge colour. Returns a canvas whose
+    alpha is what to keep. Good on plain walls and paper, not on busy scenes. */
+function bgMask(src, tol) {
+  const w = src.width, h = src.height, n = w * h;
+  const d = src.getContext('2d').getImageData(0, 0, w, h).data;
+
+  // the background colour: the commonest colour along the four edges
+  const bins = new Map();
+  const edge = i => {
+    const p = i * 4;
+    const key = (d[p] >> 4) << 8 | (d[p + 1] >> 4) << 4 | d[p + 2] >> 4;
+    let b = bins.get(key);
+    if (!b) bins.set(key, b = [0, 0, 0, 0]);
+    b[0]++; b[1] += d[p]; b[2] += d[p + 1]; b[3] += d[p + 2];
+  };
+  const border = [];
+  for (let x = 0; x < w; x++) border.push(x, (h - 1) * w + x);
+  for (let y = 0; y < h; y++) border.push(y * w, y * w + w - 1);
+  border.forEach(edge);
+  let top = null;
+  for (const b of bins.values()) if (!top || b[0] > top[0]) top = b;
+  const br = top[1] / top[0], bg = top[2] / top[0], bb = top[3] / top[0];
+
+  const T = 12 + tol * 1.3;
+  const near2 = T * T;                       // clearly background
+  const far2 = (T * 1.8) ** 2;               // maybe background, if it changes smoothly
+  const step2 = (T * 0.25) ** 2;             // "smoothly": close to the pixel we came from
+  const gone = new Uint8Array(n);
+  const q = new Int32Array(n);
+  let head = 0, tail = 0;
+
+  const dist = i => {
+    const p = i * 4, a = d[p] - br, b = d[p + 1] - bg, c = d[p + 2] - bb;
+    return a * a + b * b + c * c;
+  };
+  const visit = (j, from) => {
+    if (gone[j]) return;
+    const p = j * 4;
+    let ok = d[p + 3] < 8;
+    if (!ok) {
+      const dj = dist(j);
+      ok = dj <= near2;
+      if (!ok && from >= 0 && dj <= far2) {  // lets a shadow or uneven light on a wall through
+        const f = from * 4, a = d[p] - d[f], b = d[p + 1] - d[f + 1], c = d[p + 2] - d[f + 2];
+        ok = a * a + b * b + c * c <= step2;
+      }
+    }
+    if (ok) { gone[j] = 1; q[tail++] = j; }
+  };
+
+  for (const i of border) visit(i, -1);
+  while (head < tail) {
+    const i = q[head++], x = i % w;
+    if (x > 0) visit(i - 1, i);
+    if (x < w - 1) visit(i + 1, i);
+    if (i >= w) visit(i - w, i);
+    if (i < n - w) visit(i + w, i);
+  }
+
+  const m = new ImageData(w, h);
+  for (let i = 0; i < n; i++) m.data[i * 4 + 3] = gone[i] ? 0 : 255;
+  const raw = document.createElement('canvas');
+  raw.width = w; raw.height = h;
+  raw.getContext('2d').putImageData(m, 0, 0);
+
+  // a one pixel blur takes the staircase off the cut edge
+  const soft = document.createElement('canvas');
+  soft.width = w; soft.height = h;
+  const sx = soft.getContext('2d');
+  sx.filter = 'blur(1px)';
+  sx.drawImage(raw, 0, 0);
+  return soft;
+}
+
+/** Erases from ctx everything the mask does not keep. */
+function knock(ctx, mask, w, h) {
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(mask, 0, 0, w, h);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+/** Applies a look in place: brightness b, contrast c and colour strength s
+    (each -100..100), then a colour filter `tint` (#rrggbb or '') at strength ta (0..100). */
+function adjust(ctx, w, h, { b, c, s, tint, ta }) {
+  if (!b && !c && !s && !tint) return;
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const k = 2 ** (c / 100), off = b * 1.28, sat = 1 + s / 100;
+  const lut = new Uint8ClampedArray(256);
+  for (let i = 0; i < 256; i++) lut[i] = (i - 128) * k + 128 + off;
+
+  const a = tint ? ta / 100 : 0;
+  const tr = a ? parseInt(tint.slice(1, 3), 16) : 0;
+  const tg = a ? parseInt(tint.slice(3, 5), 16) : 0;
+  const tb = a ? parseInt(tint.slice(5, 7), 16) : 0;
+  // the filter colours the photo by its light and dark, like looking through tinted glass,
+  // so shadows stay dark and highlights stay bright instead of everything going flat
+  const glass = (l, t) => l < 128 ? 2 * l * t / 255 : 255 - 2 * (255 - l) * (255 - t) / 255;
+
+  for (let i = 0; i < d.length; i += 4) {
+    let r = lut[d[i]], g = lut[d[i + 1]], bl = lut[d[i + 2]];
+    if (s || a) {
+      const l = 0.299 * r + 0.587 * g + 0.114 * bl;
+      if (s) { r = l + (r - l) * sat; g = l + (g - l) * sat; bl = l + (bl - l) * sat; }
+      if (a) {
+        r += (glass(l, tr) - r) * a;
+        g += (glass(l, tg) - g) * a;
+        bl += (glass(l, tb) - bl) * a;
+      }
+    }
+    d[i] = r; d[i + 1] = g; d[i + 2] = bl;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+const TINTS = [
+  ['', 'Без боја'],
+  ['#d93a2b', 'Црвена'], ['#f08a24', 'Портокалова'], ['#f2c81d', 'Жолта'], ['#3f9b4b', 'Зелена'],
+  ['#2f6fd6', 'Сина'], ['#8a4fc7', 'Виолетова'], ['#e0569b', 'Розова'], ['#8a5a2b', 'Кафеава'],
+];
+
+/* brush: strokes are kept as points in 0..1 of the turned photo, so they survive
+   being redrawn at any size; size is a share of the photo's longer side */
+const BRUSHES = [['oval', 'Круг'], ['rect', 'Квадрат'], ['star', 'Ѕвезда'], ['heart', 'Срце'], ['diamond', 'Ромб']];
+const BRUSH_COLORS = [...TINTS.slice(1), ['#1c1a17', 'Црна'], ['#ffffff', 'Бела']];
+const brush = { shape: 'oval', color: '#d93a2b' };       // remembered between photos
+
+function paintStrokes(ctx, strokes, W, H) {
+  for (const st of strokes) {
+    const sz = st.size * Math.max(W, H);
+    const P = st.pts.map(([u, v]) => [u * W, v * H]);
+    const stamp = (x, y) => shapePath(ctx, st.shape, x - sz / 2, y - sz / 2, sz, sz);
+    ctx.fillStyle = ctx.strokeStyle = st.color;
+
+    if (st.shape === 'oval') {                   // a round brush is just a thick rounded line
+      ctx.lineWidth = sz; ctx.lineCap = ctx.lineJoin = 'round';
+      ctx.beginPath();
+      P.forEach(([x, y], i) => ctx[i ? 'lineTo' : 'moveTo'](x, y));
+      ctx.stroke();
+    }
+    // a square drags into a line; stars, hearts and diamonds are left as a trail of stamps
+    const gap = st.shape === 'rect' ? Math.max(1, sz * 0.2) : sz * 1.15;
+    ctx.beginPath();
+    stamp(P[0][0], P[0][1]);
+    let since = 0;                               // distance travelled since the last stamp
+    for (let i = 1; i < P.length && st.shape !== 'oval'; i++) {
+      const [ax, ay] = P[i - 1], dx = P[i][0] - ax, dy = P[i][1] - ay;
+      const len = Math.hypot(dx, dy);
+      let pos = gap - since;
+      for (; pos <= len; pos += gap) stamp(ax + dx * pos / len, ay + dy * pos / len);
+      since = len - (pos - gap);
+    }
+    ctx.fill();
+  }
+}
+
+/** Moves every stroke along when the photo is turned or mirrored. */
+function mapStrokes(fn) {
+  for (const st of ed.strokes) st.pts = st.pts.map(fn);
+}
+
+const edVal = id => +$(id).value;
+/** The sliders and colour filter as adjust() wants them. */
+const edLook = () => ({
+  b: edVal('edB'), c: edVal('edC'), s: edVal('edS'), tint: ed.tint, ta: edVal('edTA'),
+});
+const edFull = () => ({ x: 0, y: 0, w: 1, h: 1 });
+
+function openEditor(it) {
+  if (!it || $('editor').open) return;
+  const e = it.edit || {};
+  ed = {
+    it,
+    rot: e.rot || 0,
+    flip: !!e.flip,
+    crop: e.crop ? { ...e.crop } : edFull(),
+    pick: e.pick || 'rect',       // key into SHAPES
+    bg: !!e.bg,                   // background removed?
+    tint: e.tint || '',           // colour filter, #rrggbb
+    strokes: (e.strokes || []).map(st => ({ ...st })),
+    brush: false,                 // true while dragging on the photo paints
+    mm: null,                  // set when a fixed print size is picked in this session
+  };
+  $('edB').value = e.b || 0;
+  $('edC').value = e.c || 0;
+  $('edS').value = e.s || 0;
+  $('edT').value = e.t || 30;
+  $('edTA').value = e.ta || 50;
+  syncShape();
+  syncBg();
+  syncTint();
+  syncBrush();
+  $('editor').showModal();
+  edOrient();
+}
+
+/** Rebuilds the working copy after a turn or mirror. */
+function edOrient() {
+  ed.base = oriented(ed.it.orig, ed.rot, ed.flip, PREVIEW_PX);
+  edCut();
+}
+
+/** Recomputes which part is background. */
+function edCut() {
+  ed.mask = ed.bg ? bgMask(ed.base, edVal('edT')) : null;
+  edAdjust();
+}
+
+function edAdjust() {
+  const c = document.createElement('canvas');
+  c.width = ed.base.width; c.height = ed.base.height;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(ed.base, 0, 0);
+  if (ed.mask) knock(x, ed.mask, c.width, c.height);
+  adjust(x, c.width, c.height, edLook());
+  ed.adj = c;
+  edRender();
+}
+
+function edRender() {
+  if (!ed) return;
+  const st = $('edStage');
+  const W = ed.base.width, H = ed.base.height;
+  const k = Math.min((st.clientWidth - 40) / W, (st.clientHeight - 40) / H);
+  const w = W * k, h = H * k;
+  const dpr = window.devicePixelRatio || 1;
+
+  edView.style.width = w + 'px';
+  edView.style.height = h + 'px';
+  edView.width = Math.round(w * dpr);
+  edView.height = Math.round(h * dpr);
+
+  const ctx = edView.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.imageSmoothingQuality = 'high';
+
+  // checkerboard, so a removed background reads as "nothing here"
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#d9d4ca';
+  for (let cy = 0; cy * 16 < h; cy++) {
+    for (let cx = cy % 2; cx * 16 < w; cx += 2) ctx.fillRect(cx * 16, cy * 16, 16, 16);
+  }
+  ctx.drawImage(ed.adj, 0, 0, w, h);
+  paintStrokes(ctx, ed.strokes, w, h);
+
+  // everything outside the shape is what gets cut away
+  const shape = shapeOf(ed.pick).shape;
+  const x = ed.crop.x * w, y = ed.crop.y * h, cw = ed.crop.w * w, ch = ed.crop.h * h;
+  ctx.fillStyle = 'rgba(28,26,23,.66)';
+  ctx.beginPath();
+  ctx.rect(0, 0, w, h);
+  shapePath(ctx, shape, x, y, cw, ch);
+  ctx.fill('evenodd');
+
+  for (const [color, width] of [['rgba(28,26,23,.75)', 4], ['#fff', 2]]) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    shapePath(ctx, shape, x, y, cw, ch);
+    ctx.stroke();
+  }
+  if (shape !== 'rect') {                        // the box the corners belong to
+    ctx.strokeStyle = 'rgba(255,255,255,.7)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 6]);
+    ctx.strokeRect(x + 0.5, y + 0.5, cw - 1, ch - 1);
+    ctx.setLineDash([]);
+  }
+
+  // thick corner brackets: the things to grab. Dark underlay keeps them visible on white photos.
+  const len = Math.min(30, cw / 3, ch / 3), inset = 4;
+  ctx.lineCap = 'square';
+  for (const [color, width] of [['rgba(28,26,23,.75)', 10], ['#fff', 6]]) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    for (const [cx, sx] of [[x + inset, 1], [x + cw - inset, -1]]) {
+      for (const [cy, sy] of [[y + inset, 1], [y + ch - inset, -1]]) {
+        ctx.moveTo(cx, cy + sy * len); ctx.lineTo(cx, cy); ctx.lineTo(cx + sx * len, cy);
+      }
+    }
+    ctx.stroke();
+  }
+}
+
+/** The chosen shape as width/height of the crop in its 0..1 units, or 0 when free. */
+function edRatio() {
+  const { r } = shapeOf(ed.pick);
+  if (!r) return 0;
+  const [a, b] = r.split(',').map(Number);
+  return (a / b) * ed.base.height / ed.base.width;
+}
+
+/** Largest centred frame of the chosen shape. */
+function fitRatio() {
+  const rf = edRatio();
+  if (!rf) return;
+  let w = 1, h = 1 / rf;
+  if (h > 1) { h = 1; w = rf; }
+  ed.crop = { x: (1 - w) / 2, y: (1 - h) / 2, w, h };
+}
+
+/** Marks the button in a row whose data-v matches as the chosen one. */
+function mark(row, val) {
+  for (const b of row.children) {
+    const on = b.dataset.v === val;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
+}
+
+const syncShape = () => mark($('edShapes'), ed.pick);
+
+function syncBg() {
+  $('edBg').setAttribute('aria-pressed', String(ed.bg));
+  $('edBg').textContent = ed.bg ? '✓ Позадината е тргната — врати ја' : 'Тргни ја позадината';
+  $('edBgCtl').hidden = !ed.bg;
+}
+
+function syncTint() {
+  mark($('edTints'), ed.tint);
+  $('edTintCtl').hidden = !ed.tint;
+}
+
+function syncBrush() {
+  $('edBrush').setAttribute('aria-pressed', String(ed.brush));
+  $('edBrush').textContent = ed.brush ? '✓ Цртањето е вклучено — исклучи го' : 'Цртај врз сликата';
+  $('edBrushCtl').hidden = !ed.brush;
+  $('edBrushUndo').disabled = !ed.strokes.length;
+  mark($('edBrushShapes'), brush.shape);
+  mark($('edBrushColors'), brush.color);
+}
+
+/** A round colour button; an empty hex makes the "no colour" one. */
+function swatchBtn(hex, name) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.dataset.v = hex;
+  if (hex) {
+    btn.style.background = hex;
+    btn.title = name;
+    btn.setAttribute('aria-label', name);
+  } else {
+    btn.textContent = name;
+    btn.className = 'none';
+  }
+  return btn;
+}
+
+/** A button with a little drawing of the shape, a wide to b tall. */
+function shapeBtn(val, name, shape, a, b) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.dataset.v = val;
+  const c = document.createElement('canvas');
+  c.width = c.height = 80;
+  const iw = a >= b ? 72 : 72 * a / b, ih = a >= b ? 72 * b / a : 72;
+  const x = c.getContext('2d');
+  x.fillStyle = '#5d584f';
+  x.beginPath();
+  shapePath(x, shape, (80 - iw) / 2, (80 - ih) / 2, iw, ih);
+  x.fill();
+  btn.append(c, name);
+  return btn;
+}
+
+for (const [hex, name] of TINTS) $('edTints').appendChild(swatchBtn(hex, name));
+for (const s of SHAPES) {
+  const [a, b] = s.r ? s.r.split(',').map(Number) : [4, 3];
+  $('edShapes').appendChild(shapeBtn(s.k, s.name, s.shape, a, b));
+}
+for (const [shape, name] of BRUSHES) $('edBrushShapes').appendChild(shapeBtn(shape, name, shape, 1, 1));
+for (const [hex, name] of BRUSH_COLORS) $('edBrushColors').appendChild(swatchBtn(hex, name));
+
+function edTurn(dir) {                           // +1 clockwise, -1 anticlockwise
+  const c = ed.crop;
+  ed.crop = dir > 0
+    ? { x: 1 - c.y - c.h, y: c.x, w: c.h, h: c.w }
+    : { x: c.y, y: 1 - c.x - c.w, w: c.h, h: c.w };
+  mapStrokes(dir > 0 ? ([u, v]) => [1 - v, u] : ([u, v]) => [v, 1 - u]);
+  // the mirror is applied after the turn, so a mirrored photo turns the other way underneath
+  ed.rot = (ed.rot + (ed.flip ? -dir : dir) + 4) % 4;
+  ed.base = oriented(ed.it.orig, ed.rot, ed.flip, PREVIEW_PX);
+  fitRatio();                                    // a fixed shape cannot be turned, so re-seat it
+  edCut();
+}
+
+/** Stretches the darkest and lightest parts of the photo to black and white. */
+function edAuto() {
+  const d = ed.base.getContext('2d').getImageData(0, 0, ed.base.width, ed.base.height).data;
+  const hist = new Uint32Array(256);
+  let n = 0;
+  for (let i = 0; i < d.length; i += 16) {
+    if (d[i + 3] < 8) continue;
+    hist[(d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8]++;
+    n++;
+  }
+  // ignore the extreme half percent at each end: specks and glare
+  let lo = 0, hi = 255, acc = 0;
+  while (lo < 255 && (acc += hist[lo]) < n * 0.005) lo++;
+  acc = 0;
+  while (hi > 0 && (acc += hist[hi]) < n * 0.005) hi--;
+  if (hi - lo < 24) return;                      // a flat colour: nothing sensible to do
+
+  const k = Math.min(2, 255 / (hi - lo));
+  $('edC').value = Math.round(100 * Math.log2(k));
+  $('edB').value = clamp(Math.round((128 - (lo + hi) / 2) * k / 1.28), -100, 100);
+  edAdjust();
+}
+
+/* crop frame: drag a corner or an edge to resize, drag inside to move */
+
+function edPoint(e) {
+  const r = edView.getBoundingClientRect();
+  return {
+    px: e.clientX - r.left, py: e.clientY - r.top,
+    fx: clamp((e.clientX - r.left) / r.width, 0, 1),
+    fy: clamp((e.clientY - r.top) / r.height, 0, 1),
+    W: r.width, H: r.height,
+  };
+}
+
+function edHandleAt({ px, py, W, H }) {
+  const c = ed.crop;
+  const L = c.x * W, R = (c.x + c.w) * W, T = c.y * H, B = (c.y + c.h) * H;
+  if (px < L - ED_GRAB || px > R + ED_GRAB || py < T - ED_GRAB || py > B + ED_GRAB) return null;
+
+  const dl = Math.abs(px - L), dr = Math.abs(px - R);
+  const dt = Math.abs(py - T), db = Math.abs(py - B);
+  const hx = Math.min(dl, dr) <= ED_GRAB ? (dl < dr ? 'w' : 'e') : '';
+  const hy = Math.min(dt, db) <= ED_GRAB ? (dt < db ? 'n' : 's') : '';
+  // a fixed shape can only be sized from its corners
+  if (edRatio() && !(hx && hy)) return 'move';
+  return hy + hx || 'move';
+}
+
+edView.addEventListener('pointerdown', e => {
+  if (!ed) return;
+  const p = edPoint(e);
+
+  if (ed.brush) {
+    const paint = {
+      shape: brush.shape, color: brush.color,
+      size: 0.005 + edVal('edBS') / 100 * 0.145,
+      pts: [[p.fx, p.fy]],
+    };
+    ed.strokes.push(paint);
+    edDrag = { paint };
+    capture(edView, e.pointerId);
+    syncBrush();
+    edRender();
+    return;
+  }
+
+  const handle = edHandleAt(p);
+  if (!handle) return;
+  edDrag = { handle, box: { ...ed.crop }, dx: p.fx - ed.crop.x, dy: p.fy - ed.crop.y };
+  capture(edView, e.pointerId);
+});
+
+edView.addEventListener('pointermove', e => {
+  if (!ed) return;
+  const p = edPoint(e);
+
+  if (!edDrag) {
+    const h = ed.brush ? null : edHandleAt(p);
+    edView.style.cursor = ed.brush ? 'crosshair' : !h ? 'default' : h === 'move' ? 'move' : CURSORS[h];
+    return;
+  }
+  if (edDrag.paint) {
+    edDrag.paint.pts.push([p.fx, p.fy]);
+    edRender();
+    return;
+  }
+
+  const o = edDrag.box, h = edDrag.handle;
+  if (h === 'move') {
+    ed.crop = { ...o, x: clamp(p.fx - edDrag.dx, 0, 1 - o.w), y: clamp(p.fy - edDrag.dy, 0, 1 - o.h) };
+  } else {
+    let L = o.x, R = o.x + o.w, T = o.y, B = o.y + o.h;
+    if (h.includes('w')) L = clamp(p.fx, 0, R - ED_MIN);
+    if (h.includes('e')) R = clamp(p.fx, L + ED_MIN, 1);
+    if (h.includes('n')) T = clamp(p.fy, 0, B - ED_MIN);
+    if (h.includes('s')) B = clamp(p.fy, T + ED_MIN, 1);
+
+    const rf = edRatio();
+    if (rf) {
+      // shrink to the shape inside the dragged box, keeping the opposite corner still
+      let w = R - L, hh = B - T;
+      if (w / hh > rf) w = hh * rf; else hh = w / rf;
+      if (h.includes('w')) L = R - w; else R = L + w;
+      if (h.includes('n')) T = B - hh; else B = T + hh;
+    }
+    ed.crop = { x: L, y: T, w: R - L, h: B - T };
+  }
+  edRender();
+});
+
+function edEndDrag(e) {
+  if (!edDrag) return;
+  edDrag = null;
+  release(edView, e.pointerId);
+}
+edView.addEventListener('pointerup', edEndDrag);
+edView.addEventListener('pointercancel', edEndDrag);
+
+/** Swaps the edited picture into one item and keeps its box sensible. */
+function applyEdit(o, bmp, edit, mm) {
+  const turned = (((o.edit ? o.edit.rot : 0) - (edit ? edit.rot : 0)) % 2) !== 0;
+  o.bitmap = bmp;
+  o.natW = bmp.width; o.natH = bmp.height;
+  o.edit = edit;
+  o._thumb = null; o._small = null; o._smallKey = null;
+
+  if (mm) {
+    o.w = mm[0]; o.h = mm[1]; o.lock = true;
+  } else if (o.lock) {
+    // fit the new shape inside the old box, so a crop never pushes into the neighbours
+    let bw = o.w, bh = o.h;
+    if (turned) [bw, bh] = [bh, bw];
+    const a = o.natW / o.natH;
+    if (bw / bh > a) bw = bh * a; else bh = bw / a;
+    o.w = Math.max(MIN_MM, bw); o.h = Math.max(MIN_MM, bh);
+  }
+  const S = sheetSize();
+  o.w = Math.min(o.w, S.w); o.h = Math.min(o.h, S.h);
+  o.x = clamp(o.x, 0, S.w - o.w);
+  o.y = clamp(o.y, 0, S.h - o.h);
+}
+
+function edDone() {
+  const { it, rot, flip, crop, pick, bg, mask, strokes, mm } = ed;
+  const look = edLook(), t = edVal('edT');
+  const shape = shapeOf(pick).shape;
+  const plain = !rot && !flip && !look.b && !look.c && !look.s && !look.tint && !bg && shape === 'rect' &&
+                !strokes.length && crop.w > 0.999 && crop.h > 0.999;
+
+  let bmp = it.orig;
+  if (!plain) {
+    const full = oriented(it.orig, rot, flip, BAKE_PX);
+    if (mask) knock(full.getContext('2d'), mask, full.width, full.height);
+    const out = document.createElement('canvas');
+    out.width = Math.max(1, Math.round(crop.w * full.width));
+    out.height = Math.max(1, Math.round(crop.h * full.height));
+    const x = out.getContext('2d', { willReadFrequently: true });
+    if (shape !== 'rect') {
+      x.beginPath();
+      shapePath(x, shape, 0, 0, out.width, out.height);
+      x.clip();
+    }
+    const ox = -Math.round(crop.x * full.width), oy = -Math.round(crop.y * full.height);
+    x.drawImage(full, ox, oy);
+    adjust(x, out.width, out.height, look);
+    x.translate(ox, oy);                         // paint goes on last, so its colours stay true
+    paintStrokes(x, strokes, full.width, full.height);
+    bmp = out;
+  }
+  const edit = plain ? null : { rot, flip, crop: { ...crop }, pick, bg, t, strokes, ...look };
+
+  snapshot();
+  // copies made with "Копирај" or "Пополни ја страницата" follow along
+  for (const o of doc.items) if (o.src === it.src) applyEdit(o, bmp, edit, mm);
+  $('editor').close();
+  syncPanel(); renderList(); render();
+}
+
+$('edit').addEventListener('click', () => openEditor(selected()));
+$('editFab').addEventListener('click', () => openEditor(selected()));
+
+$('edLeft').addEventListener('click', () => edTurn(-1));
+$('edRight').addEventListener('click', () => edTurn(1));
+$('edFlip').addEventListener('click', () => {
+  ed.flip = !ed.flip;
+  ed.crop.x = 1 - ed.crop.x - ed.crop.w;
+  mapStrokes(([u, v]) => [1 - u, v]);
+  edOrient();
+});
+
+$('edBrush').addEventListener('click', () => { ed.brush = !ed.brush; syncBrush(); });
+$('edBrushShapes').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (btn) { brush.shape = btn.dataset.v; syncBrush(); }
+});
+$('edBrushColors').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (btn) { brush.color = btn.dataset.v; syncBrush(); }
+});
+$('edBrushUndo').addEventListener('click', () => { ed.strokes.pop(); syncBrush(); edRender(); });
+
+$('edShapes').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const s = shapeOf(btn.dataset.v);
+  ed.pick = s.k;
+  ed.mm = s.mm ? s.r.split(',').map(Number) : null;
+  fitRatio();
+  syncShape();
+  edRender();
+});
+
+$('edBg').addEventListener('click', () => {
+  ed.bg = !ed.bg;
+  syncBg();
+  edCut();
+});
+$('edT').addEventListener('input', edCut);
+
+$('edTints').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  ed.tint = btn.dataset.v;
+  syncTint();
+  edAdjust();
+});
+
+$('edAuto').addEventListener('click', edAuto);
+for (const id of ['edB', 'edC', 'edS', 'edTA']) $(id).addEventListener('input', edAdjust);
+for (const btn of document.querySelectorAll('.ed-slide button')) {
+  btn.addEventListener('click', () => {
+    const r = $(btn.dataset.for);
+    r.value = clamp(+r.value + +btn.dataset.d, +r.min, +r.max);
+    r.dispatchEvent(new Event('input'));
+  });
+}
+
+$('edReset').addEventListener('click', () => {
+  Object.assign(ed, { rot: 0, flip: false, crop: edFull(), pick: 'rect', bg: false, tint: '', strokes: [], mm: null });
+  syncBrush();
+  for (const id of ['edB', 'edC', 'edS']) $(id).value = 0;
+  $('edT').value = 30;
+  $('edTA').value = 50;
+  syncShape();
+  syncBg();
+  syncTint();
+  edOrient();
+});
+
+$('edCancel').addEventListener('click', () => $('editor').close());
+$('edDone').addEventListener('click', e => busy(e.currentTarget, edDone));
+$('editor').addEventListener('close', () => { ed = null; edDrag = null; });
+
 /* ─────────────────────────── wiring ─────────────────────────── */
 
 // photos in
@@ -1014,6 +1784,7 @@ $('dlImg').addEventListener('click', e => {
 // keyboard
 document.addEventListener('keydown', e => {
   if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+  if ($('editor').open) return;                  // the page behind the editor stays put
 
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); $('dup').click(); return; }
@@ -1034,7 +1805,7 @@ document.addEventListener('keydown', e => {
   syncDims(); render();
 });
 
-window.addEventListener('resize', render);
+window.addEventListener('resize', () => { render(); edRender(); });
 
 syncPanel();
 renderList();
